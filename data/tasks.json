@@ -1,3 +1,19 @@
 {
-  "tasks": []
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Installer le projet",
+      "depends_on": []
+    },
+    {
+      "id": 2,
+      "title": "Configurer le backend",
+      "depends_on": [1]
+    },
+    {
+      "id": 3,
+      "title": "Tester le chargement des tâches",
+      "depends_on": [2]
+    }
+  ]
 }
