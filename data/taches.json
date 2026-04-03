@@ -1,0 +1,19 @@
+{
+  "taches": [
+    {
+      "id": 1,
+      "titre": "Installer le projet",
+      "dependances": []
+    },
+    {
+      "id": 2,
+      "titre": "Configurer le backend",
+      "dependances": [1]
+    },
+    {
+      "id": 3,
+      "titre": "Tester le chargement des taches",
+      "dependances": [2]
+    }
+  ]
+}
