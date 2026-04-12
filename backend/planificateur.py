@@ -20,3 +20,14 @@ def construire_graphe(taches):
     
     return graphe
 
+def calcule_indegrees(graphe):
+    '''Prend un graphe comme renvoyé par construire_graphe
+    Renvoie un dict indiquant le nombre de dépendances restantes 
+    pour chaque noeud du graphe '''
+    indegrees = {noeud: 0 for noeud in graphe}
+
+    for dependants in graphe.values():
+        for dependant in dependants:
+            indegrees[dependant] += 1
+
+    return indegrees
