@@ -5,12 +5,19 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 
-from planificateur import construire_graphe, calcule_indegrees, construire_priorites, tri_topo
+from planificateur import (
+    construire_graphe,
+    construire_priorites,
+    calcule_indegrees,
+    tri_topo,
+    valider_taches,
+)
+
 
 def test_construire_graphe_simple():
     taches = [
-        {"id": "A", "dependances": []},
-        {"id": "B", "dependances": ["A"]},
+        {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1},
+        {"id": "B", "titre": "Tache B", "dependances": ["A"], "priorite": 2},
     ]
 
     graphe = construire_graphe(taches)
@@ -22,9 +29,9 @@ def test_construire_graphe_simple():
 
 def test_construire_graphe_dependances_multiples():
     taches = [
-        {"id": "A", "dependances": []},
-        {"id": "B", "dependances": ["A"]},
-        {"id": "C", "dependances": ["A"]},
+        {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1},
+        {"id": "B", "titre": "Tache B", "dependances": ["A"], "priorite": 2},
+        {"id": "C", "titre": "Tache C", "dependances": ["A"], "priorite": 3},
     ]
 
     graphe = construire_graphe(taches)
@@ -40,11 +47,12 @@ def test_construire_graphe_vide():
 
 def test_construire_graphe_dep_inconnue():
     taches = [
-        {"id": "A", "dependances": ["X"]},
+        {"id": "A", "titre": "Tache A", "dependances": ["X"], "priorite": 1},
     ]
 
     with pytest.raises(ValueError, match="Dépendance inconnue 'X' pour la tâche 'A'"):
         construire_graphe(taches)
+
 
 def test_calcule_indegrees_simple():
     graphe = {"A": ["B"], "B": []}
@@ -88,9 +96,9 @@ def test_construire_priorites_simple():
 
 def test_tri_topo_simple():
     taches = [
-        {"id": "A", "dependances": [], "priorite": 0},
-        {"id": "B", "dependances": [], "priorite": 0},
-        {"id": "C", "dependances": ["A", "B"], "priorite": 0},
+        {"id": "A", "dependances": [], "priorite": 1},
+        {"id": "B", "dependances": [], "priorite": 1},
+        {"id": "C", "dependances": ["A", "B"], "priorite": 1},
     ]
 
     ordre = tri_topo(taches)
@@ -101,7 +109,7 @@ def test_tri_topo_priorites():
     taches = [
         {"id": "A", "dependances": [], "priorite": 1},
         {"id": "B", "dependances": [], "priorite": 2},
-        {"id": "C", "dependances": ["A", "B"], "priorite": 0},
+        {"id": "C", "dependances": ["A", "B"], "priorite": 1},
     ]
 
     ordre = tri_topo(taches)
@@ -121,3 +129,26 @@ def test_tri_topo_cycle_simple():
 def test_tri_topo_vide():
     ordre = tri_topo([])
     assert ordre == []
+
+def test_valider_taches_champs_obligatoires():
+    taches = [{"id": "A", "dependances": [], "priorite": 1}]
+
+    with pytest.raises(ValueError, match="champs manquants"):
+        valider_taches(taches)
+
+
+def test_valider_taches_priorite_invalide():
+    taches = [{"id": "A", "titre": "Tache A", "dependances": [], "priorite": 0}]
+
+    with pytest.raises(ValueError, match="entier >= 1"):
+        valider_taches(taches)
+
+
+def test_valider_taches_id_duplique():
+    taches = [
+        {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1},
+        {"id": "A", "titre": "Tache B", "dependances": [], "priorite": 2},
+    ]
+
+    with pytest.raises(ValueError, match="dupliqué"):
+        valider_taches(taches)

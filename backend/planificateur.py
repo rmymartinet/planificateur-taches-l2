@@ -1,15 +1,61 @@
 
+CHAMPS_OBLIGATOIRES = ("id", "titre", "dependances", "priorite")
+
+
+def valider_taches(taches):
+    """Valide le format final des tâches
+
+    Champs obligatoires:
+    - id: int ou str
+    - titre: str non vide
+    - dependances: list
+    - priorite: int >= 1
+    """
+
+    if not isinstance(taches, list):
+        raise ValueError("Le jeu de tâches doit être une liste.")
+
+    ids_vus = set()
+    for index, tache in enumerate(taches):
+        if not isinstance(tache, dict):
+            raise ValueError(f"La tâche à l'index {index} doit être un objet JSON.")
+
+        champs_manquants = [champ for champ in CHAMPS_OBLIGATOIRES if champ not in tache]
+        if champs_manquants:
+            raise ValueError(
+                f"La tâche à l'index {index} est incomplète: champs manquants {champs_manquants}."
+            )
+
+        if not isinstance(tache["id"], (int, str)):
+            raise ValueError(f"Le champ 'id' de la tâche à l'index {index} doit être int ou str.")
+
+        if tache["id"] in ids_vus:
+            raise ValueError(f"Identifiant de tâche dupliqué: '{tache['id']}'.")
+        ids_vus.add(tache["id"])
+
+        if not isinstance(tache["titre"], str) or not tache["titre"].strip():
+            raise ValueError(f"Le champ 'titre' de la tâche '{tache['id']}' doit être une chaîne non vide.")
+
+        if not isinstance(tache["dependances"], list):
+            raise ValueError(f"Le champ 'dependances' de la tâche '{tache['id']}' doit être une liste.")
+
+        if not isinstance(tache["priorite"], int) or tache["priorite"] < 1:
+            raise ValueError(f"Le champ 'priorite' de la tâche '{tache['id']}' doit être un entier >= 1.")
+
 
 def construire_graphe(taches):
-    '''Prend une liste de dicts comme renvoyé par charger_taches()
-    Renvoie un graphe sous forme de dict, chaque entrée est une tache :
-    key : id, value : liste de dépendants '''
+    """Construit un graphe des dépendances validé
+
+    key: id de tâche
+    value: liste des tâches qui dépendent de cette clé
+    """
+
+    valider_taches(taches)
 
     graphe = {}
-
     for tache in taches:
-        graphe[tache["id"]] = [];
-    
+        graphe[tache["id"]] = []
+
     for tache in taches:
         for dep in tache["dependances"]:
             if dep not in graphe:
@@ -17,8 +63,9 @@ def construire_graphe(taches):
                     f"Dépendance inconnue '{dep}' pour la tâche '{tache['id']}'"
                 )
             graphe[dep].append(tache["id"])
-    
+
     return graphe
+
 
 def calcule_indegrees(graphe):
     '''Prend un graphe comme renvoyé par construire_graphe

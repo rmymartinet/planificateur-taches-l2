@@ -3,17 +3,20 @@
     {
       "id": 1,
       "titre": "Installer le projet",
-      "dependances": []
+      "dependances": [],
+      "priorite": 1
     },
     {
       "id": 2,
       "titre": "Configurer le backend",
-      "dependances": [1]
+      "dependances": [1],
+      "priorite": 2
     },
     {
       "id": 3,
       "titre": "Tester le chargement des taches",
-      "dependances": [2]
+      "dependances": [2],
+      "priorite": 3
     }
   ]
 }
