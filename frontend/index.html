@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Planificateur de tâches</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header>
+  <div class="logo">Planificateur de tâches</div>
+  <div class="api-status">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusLabel">Connexion…</span>
+  </div>
+</header>
+
+<main>
+  <!-- Colonne gauche : formulaire + liste des tâches -->
+  <div class="left-col">
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title" id="formTitle">Nouvelle tâche</span>
+        <button class="btn btn-sm" id="resetBtn" style="display:none" onclick="          ">Annuler</button>
+      </div>
+      <div class="panel-body">
+        <div id="formAlert" class="alert alert-danger"></div>
+        <input type="hidden" id="editId" />
+
+        <div class="field">
+          <label for="titreInput">Titre</label>
+          <input type="text" id="titreInput" placeholder="Ex : Installer les dépendances" />
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label for="dureeInput">Durée (h)</label>
+            <input type="number" id="dureeInput" min="0.5" step="0.5" value="1" />
+          </div>
+          <div class="field">
+            <label for="prioriteInput">Priorité</label>
+            <select id="prioriteInput">
+              <option value="1">1 — Haute</option>
+              <option value="2" selected>2 — Moyenne</option>
+              <option value="3">3 — Basse</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Dépendances</label>
+          <div id="depsCheckboxes" class="deps-container">
+            <span class="text-muted">Aucune tâche disponible</span>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="       ">
+          <span id="btnLabel">Ajouter la tâche</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:1.5rem">
+      <div class="panel-header">
+        <span class="panel-title">Tâches (<span id="taskCount">0</span>)</span>
+      </div>
+      <div class="panel-body">
+        <div class="task-list" id="taskList">
+          <div class="empty-state">
+            Aucune tâche pour l'instant.<br>Créez votre première tâche ci-dessus.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Colonne droite : planning + Gantt -->
+  <div class="right-col">
+
+    <div class="plan-btn-wrap">
+      <button class="btn btn-primary" style="margin-top:0" onclick="     ">
+        Calculer le planning
+      </button>
+      <button class="btn" onclick="    ">Réinitialiser</button>
+    </div>
+
+    <div id="planAlert" class="alert alert-danger"></div>
+
+    <div class="panel" id="orderedPanel" style="display:none">
+      <div class="panel-header">
+        <span class="panel-title">Ordre d'exécution</span>
+      </div>
+      <div class="panel-body">
+        <div class="ordered-list" id="orderedList"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="ganttPanel" style="display:none">
+      <div class="panel-header">
+        <span class="panel-title">Diagramme de Gantt</span>
+      </div>
+      <div class="panel-body gantt-wrap">
+        <svg id="ganttSvg"></svg>
+      </div>
+    </div>
+
+    <div class="panel" id="emptyPlanPanel">
+      <div class="panel-body empty-state" style="padding:3rem 1rem">
+        Ajoutez des tâches puis cliquez sur<br>
+        <strong>Calculer le planning</strong> pour visualiser le résultat.
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Scripts : A ajouter ici -->
+
+
+</body>
+</html>
