@@ -42,6 +42,30 @@ def valider_taches(taches):
         if not isinstance(tache["priorite"], int) or tache["priorite"] < 1:
             raise ValueError(f"Le champ 'priorite' de la tâche '{tache['id']}' doit être un entier >= 1.")
 
+def valider_tache(tache):
+    """Valide une tâche individuelle, utile pour l'API POST /api/tache"""
+
+    if not isinstance(tache, dict):
+        raise ValueError("La tâche doit être un objet JSON.")
+
+    champs_manquants = [champ for champ in CHAMPS_OBLIGATOIRES if champ not in tache]
+    if champs_manquants:
+        raise ValueError(
+            f"La tâche est incomplète: champs manquants {champs_manquants}."
+        )
+
+    if not isinstance(tache["id"], (int, str)):
+        raise ValueError("Le champ 'id' doit être int ou str.")
+
+    if not isinstance(tache["titre"], str) or not tache["titre"].strip():
+        raise ValueError("Le champ 'titre' doit être une chaîne non vide.")
+
+    if not isinstance(tache["dependances"], list):
+        raise ValueError("Le champ 'dependances' doit être une liste.")
+
+    if not isinstance(tache["priorite"], int) or tache["priorite"] < 1:
+        raise ValueError("Le champ 'priorite' doit être un entier >= 1.")
+
 
 def construire_graphe(taches):
     """Construit un graphe des dépendances validé
@@ -65,7 +89,6 @@ def construire_graphe(taches):
             graphe[dep].append(tache["id"])
 
     return graphe
-
 
 def calcule_indegrees(graphe):
     '''Prend un graphe comme renvoyé par construire_graphe
