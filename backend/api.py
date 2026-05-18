@@ -1,9 +1,13 @@
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 from planificateur import tri_topo, valider_tache
 from stockage import charger_taches, sauvegarder_taches
 
 app = Flask(__name__)
+
+# Permet à notre frontend de faire des requêtes à ce backend depuis un autre domaine (ex: localhost:3000)
+CORS(app)
 
 
 @app.route("/api/taches", methods=["GET"])
@@ -30,6 +34,7 @@ def get_ordre():
 @app.route("/api/tache", methods=["POST"])
 def add_tache():
   try:
+    #silent=True pour éviter une exception si le JSON est mal formé, on gère ça nous même
     data = request.get_json(silent=True)
     if data is None:
       return jsonify({"error": "Requête JSON invalide"}), 400
