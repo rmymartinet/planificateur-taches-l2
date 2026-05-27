@@ -97,3 +97,61 @@ def test_add_tache_id_duplique(client):
     data = response.get_json()
     assert "error" in data
     assert "existe déjà" in data["error"]
+
+
+def test_update_tache(client):
+    nouvelle_tache = {
+        "id": 1001,
+        "titre": "Tâche à modifier",
+        "dependances": [],
+        "priorite": 2
+    }
+    client.post('/api/tache', json=nouvelle_tache)
+
+    payload_update = {
+        "titre": "Tâche modifiée",
+        "dependances": [],
+        "priorite": 1
+    }
+
+    response = client.put('/api/tache/1001', json=payload_update)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert "message" in data
+    assert data["tache"]["titre"] == "Tâche modifiée"
+    assert data["tache"]["priorite"] == 1
+
+
+def test_update_tache_introuvable(client):
+    response = client.put('/api/tache/inconnue', json={"titre": "x"})
+    assert response.status_code == 404
+    data = response.get_json()
+    assert "error" in data
+    assert "introuvable" in data["error"]
+
+
+def test_delete_tache(client):
+    nouvelle_tache = {
+        "id": 1002,
+        "titre": "Tâche à supprimer",
+        "dependances": [],
+        "priorite": 3
+    }
+    client.post('/api/tache', json=nouvelle_tache)
+
+    response = client.delete('/api/tache/1002')
+    assert response.status_code == 200
+    data = response.get_json()
+    assert "message" in data
+
+    taches_response = client.get('/api/taches')
+    taches = taches_response.get_json()
+    assert not any(str(t["id"]) == "1002" for t in taches)
+
+
+def test_delete_tache_introuvable(client):
+    response = client.delete('/api/tache/inconnue')
+    assert response.status_code == 404
+    data = response.get_json()
+    assert "error" in data
+    assert "introuvable" in data["error"]
