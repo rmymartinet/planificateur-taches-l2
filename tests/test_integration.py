@@ -1,14 +1,9 @@
 import json
 from pathlib import Path
-import sys
-
-
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 from planificateur import tri_topo
 
 
-def test_tri_topo_avec_donnees_reelles():
+def test_tri_topo_cas_donnees_reelles_retourne_ordre_coherent():
   with open(Path(__file__).resolve().parent.parent / "data" / "taches.json") as f:
     data = json.load(f)
     taches = data["taches"]

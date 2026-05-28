@@ -136,6 +136,19 @@ Ils couvrent notamment:
 - Détection des cycles et dépendances inconnues.
 - Cohérence du tri sur données réelles.
 
+Organisation:
+- Tests unitaires: logique métier dans `test_planificateur.py`.
+- Tests API: routes Flask dans `test_api.py`.
+- Intégration: exécution sur le jeu de données du projet dans `test_integration.py`.
+
+Conventions:
+- Noms de tests harmonisés: `test_fonction_cas_resultat`.
+- Fixtures partagées centralisées dans `conftest.py`.
+
+Isolation des données de test:
+- Les tests API redirigent la persistance vers un fichier temporaire.
+- Le fichier `data/taches.json` n'est pas modifié pendant l'exécution de la suite.
+
 Lancer les tests:
 
 ```bash

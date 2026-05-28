@@ -1,9 +1,4 @@
-import sys
-from pathlib import Path
-
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 
 from planificateur import (
     construire_graphe,
@@ -14,7 +9,7 @@ from planificateur import (
 )
 
 
-def test_construire_graphe_simple():
+def test_construire_graphe_cas_simple_retourne_graphe_attendu():
     taches = [
         {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1},
         {"id": "B", "titre": "Tache B", "dependances": ["A"], "priorite": 2},
@@ -24,9 +19,8 @@ def test_construire_graphe_simple():
 
     assert graphe["A"] == ["B"]
     assert graphe["B"] == []
-    print("Test Simple OK")
 
-def test_construire_graphe_dependances_multiples():
+def test_construire_graphe_cas_dependances_multiples_retourne_graphe_attendu():
     taches = [
         {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1},
         {"id": "B", "titre": "Tache B", "dependances": ["A"], "priorite": 2},
@@ -36,13 +30,11 @@ def test_construire_graphe_dependances_multiples():
     graphe = construire_graphe(taches)
 
     assert set(graphe["A"]) == {"B", "C"}
-    print("Test Dependances Multiples OK")
 
-def test_construire_graphe_vide():
+def test_construire_graphe_cas_vide_retourne_graphe_vide():
     assert construire_graphe([]) == {}
-    print("Test Vide OK")
 
-def test_construire_graphe_dep_inconnue():
+def test_construire_graphe_cas_dependance_inconnue_leve_erreur():
     taches = [
         {"id": "A", "titre": "Tache A", "dependances": ["X"], "priorite": 1},
     ]
@@ -50,32 +42,32 @@ def test_construire_graphe_dep_inconnue():
     with pytest.raises(ValueError, match="Dépendance inconnue 'X' pour la tâche 'A'"):
         construire_graphe(taches)
 
-def test_calcule_indegrees_simple():
+def test_calcule_indegrees_cas_simple_retourne_indegrees_attendus():
     graphe = {"A": ["B"], "B": []}
     indegrees = calcule_indegrees(graphe)
     assert indegrees == {"A": 0, "B": 1}
 
-def test_calcule_indegrees_multiples():
+def test_calcule_indegrees_cas_multiples_retourne_indegrees_attendus():
     graphe = {"A": ["B", "C"], "B": [], "C": []}
     indegrees = calcule_indegrees(graphe)
     assert indegrees == {"A": 0, "B": 1, "C": 1}
 
-def test_calcule_indegrees_vide():
+def test_calcule_indegrees_cas_vide_retourne_dict_vide():
     graphe = {}
     indegrees = calcule_indegrees(graphe)
     assert indegrees == {}
 
-def test_calcule_indegrees_chaine():
+def test_calcule_indegrees_cas_chaine_retourne_indegrees_attendus():
     graphe = {"A": ["B"], "B": ["C"], "C": []}
     indegrees = calcule_indegrees(graphe)
     assert indegrees == {"A": 0, "B": 1, "C": 1}
 
-def test_calcule_indegrees_cycle():
+def test_calcule_indegrees_cas_cycle_retourne_indegrees_attendus():
     graphe = {"A": ["B"], "B": ["C"], "C": ["A"]}
     indegrees = calcule_indegrees(graphe)
     assert indegrees == {"A": 1, "B": 1, "C": 1}
 
-def test_construire_priorites_simple():
+def test_construire_priorites_cas_simple_retourne_priorites_attendues():
     taches = [
         {"id": "A", "dependances": [], "priorite": 1},
         {"id": "B", "dependances": [], "priorite": 3},
@@ -84,7 +76,7 @@ def test_construire_priorites_simple():
     priorites = construire_priorites(taches)
     assert priorites == {"A": 1, "B": 3}
 
-def test_tri_topo_simple():
+def test_tri_topo_cas_simple_retourne_ordre_attendu():
     taches = [
         {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1},
         {"id": "B", "titre": "Tache B", "dependances": [], "priorite": 1},
@@ -94,7 +86,7 @@ def test_tri_topo_simple():
     ordre = tri_topo(taches)
     assert ordre == ["A", "B", "C"]
 
-def test_tri_topo_priorites():
+def test_tri_topo_cas_priorites_retourne_ordre_attendu():
     taches = [
         {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1},
         {"id": "B", "titre": "Tache B", "dependances": [], "priorite": 2},
@@ -104,7 +96,7 @@ def test_tri_topo_priorites():
     ordre = tri_topo(taches)
     assert ordre == ["B", "A", "C"]
 
-def test_tri_topo_cycle_simple():
+def test_tri_topo_cas_cycle_simple_leve_erreur():
     taches = [
         {"id": "A", "titre": "Tache A", "dependances": ["B"], "priorite": 1},
         {"id": "B", "titre": "Tache B", "dependances": ["A"], "priorite": 1},
@@ -113,23 +105,23 @@ def test_tri_topo_cycle_simple():
     with pytest.raises(ValueError, match="Cycle de dépendances détecté"):
         tri_topo(taches)
 
-def test_tri_topo_vide():
+def test_tri_topo_cas_vide_retourne_liste_vide():
     ordre = tri_topo([])
     assert ordre == []
 
-def test_valider_taches_champs_obligatoires():
+def test_valider_taches_cas_champs_obligatoires_manquants_leve_erreur():
     taches = [{"id": "A", "dependances": [], "priorite": 1}]
 
     with pytest.raises(ValueError, match="champs manquants"):
         valider_taches(taches)
 
-def test_valider_taches_priorite_invalide():
+def test_valider_taches_cas_priorite_invalide_leve_erreur():
     taches = [{"id": "A", "titre": "Tache A", "dependances": [], "priorite": 0}]
 
     with pytest.raises(ValueError, match="entier >= 1"):
         valider_taches(taches)
 
-def test_valider_taches_id_duplique():
+def test_valider_taches_cas_id_duplique_leve_erreur():
     taches = [
         {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1},
         {"id": "A", "titre": "Tache B", "dependances": [], "priorite": 2},
@@ -138,7 +130,7 @@ def test_valider_taches_id_duplique():
     with pytest.raises(ValueError, match="dupliqué"):
         valider_taches(taches)
 
-def test_tri_topo_cycle_complexe():
+def test_tri_topo_cas_cycle_complexe_leve_erreur():
     taches = [
         {"id": "A", "titre": "Tache A", "dependances": ["B"], "priorite": 1},
         {"id": "B", "titre": "Tache B", "dependances": ["C"], "priorite": 1},
@@ -148,7 +140,7 @@ def test_tri_topo_cycle_complexe():
     with pytest.raises(ValueError, match="Cycle de dépendances détecté"):
         tri_topo(taches)
 
-def test_tri_topo_chaine_longue():
+def test_tri_topo_cas_chaine_longue_retourne_ordre_attendu():
     taches = [
         {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1},
         {"id": "B", "titre": "Tache B", "dependances": ["A"], "priorite": 1},
@@ -160,7 +152,7 @@ def test_tri_topo_chaine_longue():
     ordre = tri_topo(taches)
     assert ordre == ["A", "B", "C", "D", "E"]
 
-def test_tri_topo_priorites_multiples_dependances():
+def test_tri_topo_cas_priorites_dependances_multiples_retourne_ordre_attendu():
     taches = [
         {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1},
         {"id": "B", "titre": "Tache B", "dependances": [], "priorite": 2},
