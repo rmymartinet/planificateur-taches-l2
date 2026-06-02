@@ -6,179 +6,280 @@
 (() => {
   "use strict";
 
-  let tasks = JSON.parse(localStorage.getItem("planner_tasks_fr")) || [];
-  let selectedTaskId = null;
-  let lastPlan = [];
+  const API_BASE = "http://localhost:5000";
+  const ROUTES = {
+    taches: "/api/taches",
+    ordre: "/api/ordre",
+    tache: "/api/tache",
+  };
+
+  let taches = [];
+  let tacheSelectionneeId = null;
+  let dernierPlanning = [];
+  let apiDisponible = false;
 
   const $ = (id) => document.getElementById(id);
 
   const uid = () =>
-    "task_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+    "tache_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
 
-  const saveLocal = () => {
-    localStorage.setItem("planner_tasks_fr", JSON.stringify(tasks));
-  };
-
-  const escapeHtml = (value) =>
-    String(value)
+  const escapeHtml = (valeur) =>
+    String(valeur)
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
 
-  const priorityLabel = {
+  const libellePriorite = {
     1: "Haute",
     2: "Moyenne",
     3: "Basse",
   };
 
-  const priorityClass = {
+  const classePriorite = {
     1: "badge-prio-1",
     2: "badge-prio-2",
     3: "badge-prio-3",
   };
 
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("DOMContentLoaded", async () => {
     injectStyles();
     injectHighTechWidget();
-    wireExistingButtons();
-    setApiStatus();
-    createDemoTasks();
-    renderAll();
-    updateSimulation();
-    start3DInteraction();
+    brancherBoutonsExistants();
+    definirStatutApi("local", "Connexion…");
+    await chargerTaches();
+    afficherTout();
+    mettreAJourSimulation();
+    demarrerInteraction3D();
   });
 
-  function wireExistingButtons() {
-    const resetFormBtn = $("resetBtn");
-    const saveTaskBtn = document.querySelector(".left-col .panel .panel-body > .btn-primary");
-    const calculateBtn = document.querySelector(".right-col .plan-btn-wrap .btn-primary");
-    const resetAllBtn = document.querySelector(".right-col .plan-btn-wrap .btn:not(.btn-primary)");
+  function brancherBoutonsExistants() {
+    const boutonResetFormulaire = $("resetBtn");
+    const boutonSauvegarde = document.querySelector(".left-col .panel .panel-body > .btn-primary");
+    const boutonCalcul = document.querySelector(".right-col .plan-btn-wrap .btn-primary");
+    const boutonResetTotal = document.querySelector(".right-col .plan-btn-wrap .btn:not(.btn-primary)");
 
-    if (resetFormBtn) {
-      resetFormBtn.removeAttribute("onclick");
-      resetFormBtn.addEventListener("click", resetForm);
+    if (boutonResetFormulaire) {
+      boutonResetFormulaire.removeAttribute("onclick");
+      boutonResetFormulaire.addEventListener("click", reinitialiserFormulaire);
     }
 
-    if (saveTaskBtn) {
-      saveTaskBtn.removeAttribute("onclick");
-      saveTaskBtn.addEventListener("click", saveTask);
+    if (boutonSauvegarde) {
+      boutonSauvegarde.removeAttribute("onclick");
+      boutonSauvegarde.addEventListener("click", sauvegarderTache);
     }
 
-    if (calculateBtn) {
-      calculateBtn.removeAttribute("onclick");
-      calculateBtn.addEventListener("click", calculatePlan);
+    if (boutonCalcul) {
+      boutonCalcul.removeAttribute("onclick");
+      boutonCalcul.addEventListener("click", calculerPlanning);
     }
 
-    if (resetAllBtn) {
-      resetAllBtn.removeAttribute("onclick");
-      resetAllBtn.addEventListener("click", resetAll);
+    if (boutonResetTotal) {
+      boutonResetTotal.removeAttribute("onclick");
+      boutonResetTotal.addEventListener("click", reinitialiserTout);
     }
   }
 
-  function setApiStatus() {
-    const dot = $("statusDot");
-    const label = $("statusLabel");
+  function definirStatutApi(etat, message) {
+    const pastille = $("statusDot");
+    const libelle = $("statusLabel");
 
-    if (!dot || !label) return;
+    if (!pastille || !libelle) return;
 
-    dot.className = "status-dot connected";
-    label.textContent = "Mode local actif";
+    pastille.className = `status-dot ${etat}`;
+    libelle.textContent = message;
   }
 
-  function createDemoTasks() {
-    if (tasks.length) return;
-
-    const t1 = uid();
-    const t2 = uid();
-    const t3 = uid();
-
-    tasks = [
-      {
-        id: t1,
-        title: "Analyse du besoin client",
-        duration: 2,
-        priority: 1,
-        dependencies: [],
+  async function requeteApi(chemin, options = {}) {
+    const parametres = {
+      method: options.method || "GET",
+      headers: {
+        Accept: "application/json",
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(options.headers || {}),
       },
-      {
-        id: t2,
-        title: "Créer la maquette interactive",
-        duration: 3,
-        priority: 2,
-        dependencies: [t1],
-      },
-      {
-        id: t3,
-        title: "Validation et livraison",
-        duration: 1.5,
-        priority: 1,
-        dependencies: [t2],
-      },
-    ];
+    };
 
-    saveLocal();
+    if (options.body) {
+      parametres.body = typeof options.body === "string" ? options.body : JSON.stringify(options.body);
+    }
+
+    const reponse = await fetch(`${API_BASE}${chemin}`, parametres);
+    const texte = await reponse.text();
+    let donnees = null;
+
+    if (texte) {
+      try {
+        donnees = JSON.parse(texte);
+      } catch {
+        donnees = texte;
+      }
+    }
+
+    if (!reponse.ok) {
+      const message =
+        donnees?.erreur ||
+        donnees?.error ||
+        donnees?.message ||
+        `Erreur API ${reponse.status}`;
+      throw new Error(message);
+    }
+
+    return donnees;
   }
 
-  function renderAll() {
-    renderDependencies();
-    renderTaskList();
-    renderNetwork();
-    updateWidgetInsight();
+  async function chargerTaches({ silencieux = false } = {}) {
+    try {
+      const donnees = await requeteApi(ROUTES.taches);
+      taches = normaliserListeTaches(extraireListe(donnees, ["taches", "data", "items"]));
+      apiDisponible = true;
+      definirStatutApi("connected", "API connectée");
+      dernierPlanning = [];
+      masquerPanneauxPlanning();
+      afficherTout();
+    } catch (erreur) {
+      apiDisponible = false;
+      taches = [];
+      dernierPlanning = [];
+      definirStatutApi("error", "API indisponible");
+      afficherTout();
+
+      if (!silencieux) {
+        showAlert(
+          "planAlert",
+          "Impossible de charger les tâches depuis l’API. Lancez python backend/api.py puis rechargez la page."
+        );
+      }
+    }
+  }
+
+  function extraireListe(donnees, cles) {
+    if (Array.isArray(donnees)) return donnees;
+    if (!donnees || typeof donnees !== "object") return [];
+
+    for (const cle of cles) {
+      if (Array.isArray(donnees[cle])) return donnees[cle];
+    }
+
+    return [];
+  }
+
+  function normaliserListeTaches(liste) {
+    const provisoires = liste.map((element, index) => normaliserTache(element, index));
+
+    return provisoires.map((tache) => ({
+      ...tache,
+      dependances: tache.dependances
+        .map((reference) => convertirReferenceEnId(reference, provisoires))
+        .filter(Boolean),
+    }));
+  }
+
+  function normaliserTache(element, index = 0) {
+    const objet = element && typeof element === "object" ? element : { titre: String(element || "") };
+    const titre = String(objet.titre ?? `Tâche ${index + 1}`).trim();
+    const id = String((objet.id ?? objet.identifiant ?? titre) || uid());
+    const duree = Number(objet.duree ?? 1);
+    const priorite = Number(objet.priorite ?? 2);
+    const dependancesBrutes = objet.dependances ?? [];
+
+    return {
+      id,
+      titre,
+      duree: Number.isFinite(duree) && duree > 0 ? duree : 1,
+      priorite: [1, 2, 3].includes(priorite) ? priorite : 2,
+      dependances: Array.isArray(dependancesBrutes)
+  ? dependancesBrutes.map((x) => Number(x))
+  : [],
+      referenceApi: String(objet.id ?? objet.identifiant ?? titre),
+    };
+  }
+
+  function convertirReferenceEnId(reference, liste = taches) {
+    const valeur = String(reference);
+    const trouvee = liste.find((tache) => tache.id === valeur || tache.titre === valeur || tache.referenceApi === valeur);
+    return trouvee ? trouvee.id : null;
+  }
+
+  function convertirIdEnReferenceApi(id) {
+    const tache = taches.find((element) => element.id === id);
+    return tache ? tache.referenceApi || tache.id || tache.titre : id;
+  }
+
+  function convertirIdEnTitre(id) {
+    const tache = taches.find((element) => element.id === id);
+    return tache ? tache.titre : id;
+  }
+
+  function preparerTachePourApi(tache) {
+    return {
+      id: tache.id,
+      titre: tache.titre,
+      duree: tache.duree,
+      priorite: tache.priorite,
+      dependances: (tache.dependances || []).map(Number),
+    };
+  }
+
+  function afficherTout() {
+    afficherDependances();
+    afficherListeTaches();
+    afficherReseau();
+    mettreAJourInsightWidget();
   }
 
   function showAlert(id, message, type = "danger") {
-    const alert = $(id);
-    if (!alert) return;
+    const alerte = $(id);
+    if (!alerte) return;
 
-    alert.className = `alert alert-${type} show`;
-    alert.textContent = message;
+    alerte.className = `alert alert-${type} show`;
+    alerte.textContent = message;
 
     setTimeout(() => {
-      alert.classList.remove("show");
+      alerte.classList.remove("show");
     }, 3500);
   }
 
-  function renderDependencies() {
-    const container = $("depsCheckboxes");
-    if (!container) return;
+  function afficherDependances() {
+    const conteneur = $("depsCheckboxes");
+    if (!conteneur) return;
 
     const editId = $("editId")?.value || "";
-    const currentTask = tasks.find((task) => task.id === editId);
-    const selectedDeps = currentTask?.dependencies || [];
-    const availableTasks = tasks.filter((task) => task.id !== editId);
+    const tacheCourante = taches.find((tache) => tache.id === editId);
+    const dependancesSelectionnees = tacheCourante?.dependances || [];
+    const tachesDisponibles = taches.filter((tache) => tache.id !== editId);
 
-    if (!availableTasks.length) {
-      container.innerHTML = `<span class="text-muted">Aucune tâche disponible</span>`;
+    if (!tachesDisponibles.length) {
+      conteneur.innerHTML = `<span class="text-muted">Aucune tâche disponible</span>`;
       return;
     }
 
-    container.innerHTML = availableTasks
+    conteneur.innerHTML = tachesDisponibles
       .map(
-        (task) => `
+        (tache) => `
           <label class="dep-label">
             <input
               type="checkbox"
-              value="${task.id}"
-              ${selectedDeps.includes(task.id) ? "checked" : ""}
+              value="${escapeHtml(tache.id)}"
+              ${dependancesSelectionnees.includes(tache.id) ? "checked" : ""}
             />
-            ${escapeHtml(task.title)}
+            ${escapeHtml(tache.titre)}
           </label>
         `
       )
       .join("");
   }
 
-  function renderTaskList() {
-    const list = $("taskList");
-    const count = $("taskCount");
+  function afficherListeTaches() {
+    const liste = $("taskList");
+    const compteur = $("taskCount");
 
-    if (!list) return;
-    if (count) count.textContent = tasks.length;
+    if (!liste) return;
+    if (compteur) compteur.textContent = taches.length;
 
-    if (!tasks.length) {
-      list.innerHTML = `
+    if (!taches.length) {
+      liste.innerHTML = `
         <div class="empty-state">
           Aucune tâche pour l'instant.<br>
           Créez votre première tâche ci-dessus.
@@ -187,29 +288,29 @@
       return;
     }
 
-    list.innerHTML = tasks
-      .map((task) => {
-        const depText = task.dependencies.length
-          ? `${task.dependencies.length} dépendance(s)`
+    liste.innerHTML = taches
+      .map((tache) => {
+        const texteDependances = tache.dependances.length
+          ? `${tache.dependances.length} dépendance(s)`
           : "Sans dépendance";
 
         return `
-          <div class="task-card ${selectedTaskId === task.id ? "selected" : ""}" data-task-id="${task.id}">
+          <div class="task-card ${tacheSelectionneeId === tache.id ? "selected" : ""}" data-tache-id="${escapeHtml(tache.id)}">
             <div class="task-info">
-              <div class="task-name">${escapeHtml(task.title)}</div>
-              <div class="task-meta">${task.duration}h • ${depText}</div>
+              <div class="task-name">${escapeHtml(tache.titre)}</div>
+              <div class="task-meta">${tache.duree}h • ${texteDependances}</div>
             </div>
 
             <div class="task-actions">
-              <span class="badge ${priorityClass[task.priority]}">
-                ${priorityLabel[task.priority]}
+              <span class="badge ${classePriorite[tache.priorite]}">
+                ${libellePriorite[tache.priorite]}
               </span>
 
-              <button class="btn btn-sm" data-action="edit" data-id="${task.id}">
+              <button class="btn btn-sm" data-action="edit" data-id="${escapeHtml(tache.id)}">
                 Modifier
               </button>
 
-              <button class="btn btn-sm btn-danger" data-action="delete" data-id="${task.id}">
+              <button class="btn btn-sm btn-danger" data-action="delete" data-id="${escapeHtml(tache.id)}">
                 Supprimer
               </button>
             </div>
@@ -218,133 +319,151 @@
       })
       .join("");
 
-    list.querySelectorAll(".task-card").forEach((card) => {
-      card.addEventListener("click", () => {
-        selectTask(card.dataset.taskId);
+    liste.querySelectorAll(".task-card").forEach((carte) => {
+      carte.addEventListener("click", () => {
+        selectionnerTache(carte.dataset.tacheId);
       });
     });
 
-    list.querySelectorAll("[data-action='edit']").forEach((button) => {
-      button.addEventListener("click", (event) => {
+    liste.querySelectorAll("[data-action='edit']").forEach((bouton) => {
+      bouton.addEventListener("click", (event) => {
         event.stopPropagation();
-        editTask(button.dataset.id);
+        modifierTache(bouton.dataset.id);
       });
     });
 
-    list.querySelectorAll("[data-action='delete']").forEach((button) => {
-      button.addEventListener("click", (event) => {
+    liste.querySelectorAll("[data-action='delete']").forEach((bouton) => {
+      bouton.addEventListener("click", (event) => {
         event.stopPropagation();
-        deleteTask(button.dataset.id);
+        supprimerTache(bouton.dataset.id);
       });
     });
   }
 
-  function saveTask() {
-    const titleInput = $("titreInput");
-    const durationInput = $("dureeInput");
-    const priorityInput = $("prioriteInput");
+  async function sauvegarderTache() {
+    const titreInput = $("titreInput");
+    const dureeInput = $("dureeInput");
+    const prioriteInput = $("prioriteInput");
     const editInput = $("editId");
 
-    if (!titleInput || !durationInput || !priorityInput || !editInput) return;
+    if (!titreInput || !dureeInput || !prioriteInput || !editInput) return;
 
-    const title = titleInput.value.trim();
-    const duration = Number(durationInput.value);
-    const priority = Number(priorityInput.value);
+    const titre = titreInput.value.trim();
+    const duree = Number(dureeInput.value);
+    const priorite = Number(prioriteInput.value);
     const editId = editInput.value;
 
-    const dependencies = Array.from(
+    const dependances = Array.from(
       document.querySelectorAll("#depsCheckboxes input[type='checkbox']:checked")
-    ).map((checkbox) => checkbox.value);
+    ).map((checkbox) => Number(checkbox.value));
 
-    if (!title) {
+    if (!titre) {
       showAlert("formAlert", "Veuillez saisir un titre de tâche.");
       return;
     }
 
-    if (!duration || duration <= 0) {
+    if (!duree || duree <= 0) {
       showAlert("formAlert", "La durée doit être supérieure à 0.");
       return;
     }
 
-    if (editId) {
-      tasks = tasks.map((task) =>
-        task.id === editId
-          ? {
-              ...task,
-              title,
-              duration,
-              priority,
-              dependencies,
-            }
-          : task
-      );
+    const tache = {
+      id: editId || uid(),
+      titre,
+      duree,
+      priorite,
+      dependances,
+    };
 
-      showAlert("formAlert", "Tâche mise à jour avec succès.", "success");
-    } else {
-      tasks.push({
-        id: uid(),
-        title,
-        duration,
-        priority,
-        dependencies,
-      });
+    try {
+      definirStatutApi("local", "Envoi API…");
 
-      showAlert("formAlert", "Tâche ajoutée au planning.", "success");
+      if (editId) {
+        await modifierTacheApi(tache);
+        showAlert("formAlert", "Tâche mise à jour avec succès.", "success");
+      } else {
+        await requeteApi(ROUTES.tache, {
+          method: "POST",
+          body: preparerTachePourApi(tache),
+        });
+        showAlert("formAlert", "Tâche ajoutée au planning.", "success");
+      }
+
+      await chargerTaches({ silencieux: true });
+      reinitialiserFormulaire();
+      definirStatutApi("connected", "API connectée");
+    } catch (erreur) {
+      definirStatutApi("error", "Erreur API");
+      showAlert("formAlert", messageEndpointManquant(erreur, editId ? "PUT /api/tache/<id>" : "POST /api/tache"));
+    }
+  }
+
+  async function modifierTacheApi(tache) {
+    const reference = encodeURIComponent(convertirIdEnReferenceApi(tache.id));
+    await requeteApi(`${ROUTES.tache}/${reference}`, {
+      method: "PUT",
+      body: preparerTachePourApi(tache),
+    });
+  }
+
+  function messageEndpointManquant(erreur, endpoint) {
+    const texte = erreur?.message || "Erreur API";
+
+    if (/404|405|not found|method/i.test(texte)) {
+      return `Endpoint ${endpoint} indisponible côté backend.`;
     }
 
-    saveLocal();
-    resetForm();
-    renderAll();
+    return texte;
   }
 
-  function resetForm() {
-    const titleInput = $("titreInput");
-    const durationInput = $("dureeInput");
-    const priorityInput = $("prioriteInput");
+  function reinitialiserFormulaire() {
+    const titreInput = $("titreInput");
+    const dureeInput = $("dureeInput");
+    const prioriteInput = $("prioriteInput");
     const editInput = $("editId");
-    const formTitle = $("formTitle");
-    const btnLabel = $("btnLabel");
-    const resetBtn = $("resetBtn");
+    const titreFormulaire = $("formTitle");
+    const libelleBouton = $("btnLabel");
+    const boutonReset = $("resetBtn");
 
-    if (titleInput) titleInput.value = "";
-    if (durationInput) durationInput.value = 1;
-    if (priorityInput) priorityInput.value = 2;
+    if (titreInput) titreInput.value = "";
+    if (dureeInput) dureeInput.value = 1;
+    if (prioriteInput) prioriteInput.value = 2;
     if (editInput) editInput.value = "";
-    if (formTitle) formTitle.textContent = "Nouvelle tâche";
-    if (btnLabel) btnLabel.textContent = "Ajouter la tâche";
-    if (resetBtn) resetBtn.style.display = "none";
+    if (titreFormulaire) titreFormulaire.textContent = "Nouvelle tâche";
+    if (libelleBouton) libelleBouton.textContent = "Ajouter la tâche";
+    if (boutonReset) boutonReset.style.display = "none";
 
-    selectedTaskId = null;
+    tacheSelectionneeId = null;
 
-    renderDependencies();
-    renderTaskList();
-    renderNetwork();
+    afficherDependances();
+    afficherListeTaches();
+    afficherReseau();
   }
 
-  function selectTask(id) {
-    selectedTaskId = selectedTaskId === id ? null : id;
-    renderTaskList();
-    renderNetwork();
-    pulseNode(id);
+  function selectionnerTache(id) {
+    tacheSelectionneeId = tacheSelectionneeId === id ? null : id;
+    afficherListeTaches();
+    afficherReseau();
+    animerNoeud(id);
   }
 
-  function editTask(id) {
-    const task = tasks.find((item) => item.id === id);
-    if (!task) return;
+  function modifierTache(id) {
+    const tache = taches.find((item) => item.id === id);
+    if (!tache) return;
 
-    $("titreInput").value = task.title;
-    $("dureeInput").value = task.duration;
-    $("prioriteInput").value = task.priority;
-    $("editId").value = task.id;
+    $("titreInput").value = tache.titre;
+    $("dureeInput").value = tache.duree;
+    $("prioriteInput").value = tache.priorite;
+    $("editId").value = tache.id;
     $("formTitle").textContent = "Modifier la tâche";
     $("btnLabel").textContent = "Enregistrer";
     $("resetBtn").style.display = "inline-flex";
 
-    selectedTaskId = id;
+    tacheSelectionneeId = id;
 
-    renderDependencies();
-    renderTaskList();
-    renderNetwork();
+    afficherDependances();
+    afficherListeTaches();
+    afficherReseau();
 
     window.scrollTo({
       top: 0,
@@ -352,151 +471,153 @@
     });
   }
 
-  function deleteTask(id) {
-    tasks = tasks
-      .filter((task) => task.id !== id)
-      .map((task) => ({
-        ...task,
-        dependencies: task.dependencies.filter((depId) => depId !== id),
-      }));
+  async function supprimerTache(id) {
+    const tache = taches.find((element) => element.id === id);
+    if (!tache) return;
 
-    if ($("editId")?.value === id) {
-      resetForm();
+    try {
+      definirStatutApi("local", "Envoi API…");
+      const reference = encodeURIComponent(convertirIdEnReferenceApi(id));
+      await requeteApi(`${ROUTES.tache}/${reference}`, { method: "DELETE" });
+
+      if ($("editId")?.value === id) {
+        reinitialiserFormulaire();
+      }
+
+      tacheSelectionneeId = null;
+      dernierPlanning = [];
+      await chargerTaches({ silencieux: true });
+      masquerPanneauxPlanning();
+      definirStatutApi("connected", "API connectée");
+      showAlert("formAlert", "Tâche supprimée.", "success");
+    } catch (erreur) {
+      definirStatutApi("error", "Erreur API");
+      showAlert("formAlert", messageEndpointManquant(erreur, "DELETE /api/tache/<id>"));
     }
-
-    selectedTaskId = null;
-    lastPlan = [];
-
-    saveLocal();
-    renderAll();
-    hidePlanPanels();
   }
 
-  function resetAll() {
-    tasks = [];
-    selectedTaskId = null;
-    lastPlan = [];
+  async function reinitialiserTout() {
+    try {
+      definirStatutApi("local", "Envoi API…");
+      await requeteApi(ROUTES.taches, { method: "DELETE" });
 
-    saveLocal();
-    resetForm();
-    renderAll();
-    hidePlanPanels();
+      taches = [];
+      tacheSelectionneeId = null;
+      dernierPlanning = [];
 
-    showAlert("planAlert", "Planning réinitialisé.", "success");
+      reinitialiserFormulaire();
+      afficherTout();
+      masquerPanneauxPlanning();
+      definirStatutApi("connected", "API connectée");
+      showAlert("planAlert", "Planning réinitialisé.", "success");
+    } catch (erreur) {
+      definirStatutApi("error", "Erreur API");
+      showAlert("planAlert", messageEndpointManquant(erreur, "DELETE /api/taches"));
+    }
   }
 
-  function hidePlanPanels() {
+  function masquerPanneauxPlanning() {
     if ($("orderedPanel")) $("orderedPanel").style.display = "none";
     if ($("ganttPanel")) $("ganttPanel").style.display = "none";
     if ($("emptyPlanPanel")) $("emptyPlanPanel").style.display = "block";
   }
 
-  function calculatePlan() {
-    if (!tasks.length) {
+  async function calculerPlanning() {
+    if (!taches.length) {
       showAlert("planAlert", "Ajoutez au moins une tâche avant de calculer.");
       return;
     }
 
-    const result = buildPlan();
+    try {
+      definirStatutApi("local", "Calcul API…");
+      const donnees = await requeteApi(ROUTES.ordre);
+      const planning = normaliserPlanningApi(donnees);
 
-    if (result.error) {
-      showAlert("planAlert", result.error);
-      return;
+      if (!planning.length) {
+        showAlert("planAlert", "L’API n’a retourné aucun ordre de tâches.");
+        return;
+      }
+
+      dernierPlanning = planning;
+
+      afficherOrdre(dernierPlanning);
+      afficherGantt(dernierPlanning);
+      afficherReseau(dernierPlanning);
+      mettreAJourInsightWidget();
+
+      if ($("orderedPanel")) $("orderedPanel").style.display = "block";
+      if ($("ganttPanel")) $("ganttPanel").style.display = "block";
+      if ($("emptyPlanPanel")) $("emptyPlanPanel").style.display = "none";
+
+      definirStatutApi("connected", "API connectée");
+      showAlert("planAlert", "Planning intelligent calculé avec succès.", "success");
+    } catch (erreur) {
+      definirStatutApi("error", "Erreur API");
+      showAlert("planAlert", erreur?.message || "Impossible de calculer le planning via l’API.");
     }
-
-    lastPlan = result.plan;
-
-    renderOrderedList(lastPlan);
-    renderGantt(lastPlan);
-    renderNetwork(lastPlan);
-    updateWidgetInsight();
-
-    if ($("orderedPanel")) $("orderedPanel").style.display = "block";
-    if ($("ganttPanel")) $("ganttPanel").style.display = "block";
-    if ($("emptyPlanPanel")) $("emptyPlanPanel").style.display = "none";
-
-    showAlert("planAlert", "Planning intelligent calculé avec succès.", "success");
   }
 
-  function buildPlan() {
-    const map = new Map(tasks.map((task) => [task.id, task]));
-    const visited = new Set();
-    const visiting = new Set();
-    const sorted = [];
+  function normaliserPlanningApi(donnees) {
+    const ordreBrut = extraireListe(donnees, ["ordre", "planning", "plan", "taches", "data", "items"]);
+    const liste = ordreBrut
+      .map((element, index) => {
+        if (typeof element === "string" || typeof element === "number") {
+          return chercherTacheParReference(String(element));
+        }
 
-    function visit(task) {
-      if (visiting.has(task.id)) {
-        return {
-          error: "Dépendance circulaire détectée. Vérifiez l'ordre des tâches.",
-        };
-      }
+        return normaliserTache(element, index);
+      })
+      .filter(Boolean)
+      .map((tache) => ({
+        ...tache,
+        dependances: tache.dependances.map((reference) => convertirReferenceEnId(reference)),
+      }));
 
-      if (visited.has(task.id)) return null;
+    return ajouterChronologie(liste);
+  }
 
-      visiting.add(task.id);
+  function chercherTacheParReference(reference) {
+    return taches.find(
+      (tache) => tache.id === reference || tache.titre === reference || tache.referenceApi === reference
+    );
+  }
 
-      for (const depId of task.dependencies) {
-        const dep = map.get(depId);
-        if (!dep) continue;
+  function ajouterChronologie(liste) {
+    let heureCourante = 0;
 
-        const error = visit(dep);
-        if (error) return error;
-      }
-
-      visiting.delete(task.id);
-      visited.add(task.id);
-      sorted.push(task);
-
-      return null;
-    }
-
-    const sortedByPriority = [...tasks].sort((a, b) => {
-      if (a.priority !== b.priority) return a.priority - b.priority;
-      return a.duration - b.duration;
-    });
-
-    for (const task of sortedByPriority) {
-      const error = visit(task);
-      if (error) return error;
-    }
-
-    let currentTime = 0;
-
-    const plan = sorted.map((task, index) => {
-      const start = currentTime;
-      const end = start + Number(task.duration);
-      currentTime = end;
+    return liste.map((tache, index) => {
+      const debut = heureCourante;
+      const fin = debut + Number(tache.duree);
+      heureCourante = fin;
 
       return {
-        ...task,
-        step: index + 1,
-        start,
-        end,
+        ...tache,
+        etape: index + 1,
+        debut,
+        fin,
       };
     });
-
-    return { plan };
   }
 
-  function renderOrderedList(plan) {
-    const list = $("orderedList");
-    if (!list) return;
+  function afficherOrdre(planning) {
+    const liste = $("orderedList");
+    if (!liste) return;
 
-    list.innerHTML = plan
+    liste.innerHTML = planning
       .map(
-        (task) => `
+        (tache) => `
           <div class="ordered-item">
-            <div class="step-num">${task.step}</div>
+            <div class="step-num">${tache.etape}</div>
 
             <div class="step-info">
-              <div class="step-name">${escapeHtml(task.title)}</div>
+              <div class="step-name">${escapeHtml(tache.titre)}</div>
               <div class="step-dates">
-                Début : ${task.start}h • Fin : ${task.end}h
+                Début : ${tache.debut}h • Fin : ${tache.fin}h
               </div>
             </div>
 
-            <span class="badge ${priorityClass[task.priority]}">
-              ${priorityLabel[task.priority]}
+            <span class="badge ${classePriorite[tache.priorite]}">
+              ${libellePriorite[tache.priorite]}
             </span>
           </div>
         `
@@ -504,22 +625,22 @@
       .join("");
   }
 
-  function renderGantt(plan) {
+  function afficherGantt(planning) {
     const svg = $("ganttSvg");
     if (!svg) return;
 
-    const width = 900;
-    const left = 165;
-    const top = 48;
-    const rowHeight = 56;
-    const height = top + plan.length * rowHeight + 40;
-    const total = Math.max(...plan.map((task) => task.end), 1);
-    const chartWidth = width - left - 40;
+    const largeur = 900;
+    const gauche = 165;
+    const haut = 48;
+    const hauteurLigne = 56;
+    const hauteur = haut + planning.length * hauteurLigne + 40;
+    const total = Math.max(...planning.map((tache) => tache.fin), 1);
+    const largeurGraphique = largeur - gauche - 40;
 
-    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("viewBox", `0 0 ${largeur} ${hauteur}`);
     svg.innerHTML = "";
 
-    const defs = createSvg("defs");
+    const defs = creerSvg("defs");
     defs.innerHTML = `
       <linearGradient id="ganttGradient" x1="0%" y1="0%" x2="100%" y2="0%">
         <stop offset="0%" stop-color="#185FA5"/>
@@ -537,69 +658,69 @@
     `;
     svg.appendChild(defs);
 
-    svg.appendChild(svgText(20, 27, "Vue Gantt intelligente", "gantt-title"));
-    svg.appendChild(svgLine(left, 36, width - 25, 36, "rgba(120,120,120,.35)"));
+    svg.appendChild(texteSvg(20, 27, "Vue Gantt intelligente", "gantt-title"));
+    svg.appendChild(ligneSvg(gauche, 36, largeur - 25, 36, "rgba(120,120,120,.35)"));
 
     for (let i = 0; i <= total; i++) {
-      const x = left + (i / total) * chartWidth;
+      const x = gauche + (i / total) * largeurGraphique;
 
-      svg.appendChild(svgLine(x, 42, x, height - 20, "rgba(120,120,120,.16)"));
-      svg.appendChild(svgText(x - 7, 27, `${i}h`, "gantt-small"));
+      svg.appendChild(ligneSvg(x, 42, x, hauteur - 20, "rgba(120,120,120,.16)"));
+      svg.appendChild(texteSvg(x - 7, 27, `${i}h`, "gantt-small"));
     }
 
-    plan.forEach((task, index) => {
-      const y = top + index * rowHeight;
-      const x = left + (task.start / total) * chartWidth;
-      const w = Math.max(24, ((task.end - task.start) / total) * chartWidth);
+    planning.forEach((tache, index) => {
+      const y = haut + index * hauteurLigne;
+      const x = gauche + (tache.debut / total) * largeurGraphique;
+      const w = Math.max(24, ((tache.fin - tache.debut) / total) * largeurGraphique);
 
-      svg.appendChild(svgText(20, y + 27, `${task.step}. ${task.title}`, "gantt-label"));
+      svg.appendChild(texteSvg(20, y + 27, `${tache.etape}. ${tache.titre}`, "gantt-label"));
 
-      const bg = createSvg("rect");
-      bg.setAttribute("x", left);
-      bg.setAttribute("y", y + 7);
-      bg.setAttribute("width", chartWidth);
-      bg.setAttribute("height", 28);
-      bg.setAttribute("rx", 9);
-      bg.setAttribute("fill", "rgba(120,120,120,.08)");
-      svg.appendChild(bg);
+      const fond = creerSvg("rect");
+      fond.setAttribute("x", gauche);
+      fond.setAttribute("y", y + 7);
+      fond.setAttribute("width", largeurGraphique);
+      fond.setAttribute("height", 28);
+      fond.setAttribute("rx", 9);
+      fond.setAttribute("fill", "rgba(120,120,120,.08)");
+      svg.appendChild(fond);
 
-      const bar = createSvg("rect");
-      bar.setAttribute("x", x);
-      bar.setAttribute("y", y + 7);
-      bar.setAttribute("width", w);
-      bar.setAttribute("height", 28);
-      bar.setAttribute("rx", 9);
-      bar.setAttribute("fill", "url(#ganttGradient)");
-      bar.setAttribute("filter", "url(#ganttGlow)");
-      bar.classList.add("gantt-bar");
-      svg.appendChild(bar);
+      const barre = creerSvg("rect");
+      barre.setAttribute("x", x);
+      barre.setAttribute("y", y + 7);
+      barre.setAttribute("width", w);
+      barre.setAttribute("height", 28);
+      barre.setAttribute("rx", 9);
+      barre.setAttribute("fill", "url(#ganttGradient)");
+      barre.setAttribute("filter", "url(#ganttGlow)");
+      barre.classList.add("gantt-bar");
+      svg.appendChild(barre);
 
-      svg.appendChild(svgText(x + 11, y + 26, `${task.duration}h`, "gantt-bar-text"));
+      svg.appendChild(texteSvg(x + 11, y + 26, `${tache.duree}h`, "gantt-bar-text"));
     });
   }
 
-  function createSvg(tag) {
-    return document.createElementNS("http://www.w3.org/2000/svg", tag);
+  function creerSvg(balise) {
+    return document.createElementNS("http://www.w3.org/2000/svg", balise);
   }
 
-  function svgText(x, y, text, className) {
-    const node = createSvg("text");
-    node.setAttribute("x", x);
-    node.setAttribute("y", y);
-    node.setAttribute("class", className);
-    node.textContent = text;
-    return node;
+  function texteSvg(x, y, texte, classe) {
+    const noeud = creerSvg("text");
+    noeud.setAttribute("x", x);
+    noeud.setAttribute("y", y);
+    noeud.setAttribute("class", classe);
+    noeud.textContent = texte;
+    return noeud;
   }
 
-  function svgLine(x1, y1, x2, y2, color) {
-    const line = createSvg("line");
-    line.setAttribute("x1", x1);
-    line.setAttribute("y1", y1);
-    line.setAttribute("x2", x2);
-    line.setAttribute("y2", y2);
-    line.setAttribute("stroke", color);
-    line.setAttribute("stroke-width", 1);
-    return line;
+  function ligneSvg(x1, y1, x2, y2, couleur) {
+    const ligne = creerSvg("line");
+    ligne.setAttribute("x1", x1);
+    ligne.setAttribute("y1", y1);
+    ligne.setAttribute("x2", x2);
+    ligne.setAttribute("y2", y2);
+    ligne.setAttribute("stroke", couleur);
+    ligne.setAttribute("stroke-width", 1);
+    return ligne;
   }
 
   function injectHighTechWidget() {
@@ -714,55 +835,55 @@
 
     rightCol.appendChild(panel);
 
-    const range = $("speedRange");
-    if (range) {
-      range.addEventListener("input", updateSimulation);
+    const curseur = $("speedRange");
+    if (curseur) {
+      curseur.addEventListener("input", mettreAJourSimulation);
     }
   }
 
-  function updateSimulation() {
-    const range = $("speedRange");
-    if (!range) return;
+  function mettreAJourSimulation() {
+    const curseur = $("speedRange");
+    if (!curseur) return;
 
-    const value = Number(range.value);
-    const timeSaved = (0.7 + value * 0.045).toFixed(1);
-    const happy = Math.min(99, Math.round(55 + value * 0.48));
-    const clarity = Math.min(100, Math.round(40 + value * 0.6));
+    const valeur = Number(curseur.value);
+    const tempsGagne = (0.7 + valeur * 0.045).toFixed(1);
+    const satisfaction = Math.min(99, Math.round(55 + valeur * 0.48));
+    const clarte = Math.min(100, Math.round(40 + valeur * 0.6));
 
-    if ($("speedValue")) $("speedValue").textContent = `${value}%`;
-    if ($("timeSaved")) $("timeSaved").textContent = `${timeSaved}h`;
-    if ($("happyScore")) $("happyScore").textContent = `${happy}%`;
+    if ($("speedValue")) $("speedValue").textContent = `${valeur}%`;
+    if ($("timeSaved")) $("timeSaved").textContent = `${tempsGagne}h`;
+    if ($("happyScore")) $("happyScore").textContent = `${satisfaction}%`;
 
-    const face = $("happyFace");
-    if (face) {
-      face.textContent =
-        happy > 90 ? "🤩" : happy > 75 ? "😊" : happy > 60 ? "🙂" : "😐";
+    const visage = $("happyFace");
+    if (visage) {
+      visage.textContent =
+        satisfaction > 90 ? "🤩" : satisfaction > 75 ? "😊" : satisfaction > 60 ? "🙂" : "😐";
 
-      face.style.transform = `scale(${1 + value / 350}) rotate(${(value - 50) / 10}deg)`;
+      visage.style.transform = `scale(${1 + valeur / 350}) rotate(${(valeur - 50) / 10}deg)`;
     }
 
     const cube = $("holoCube");
     if (cube) {
-      cube.style.animationDuration = `${Math.max(5, 16 - value / 8)}s`;
-      cube.style.filter = `drop-shadow(0 0 ${10 + value / 2}px rgba(55,138,221,.45))`;
+      cube.style.animationDuration = `${Math.max(5, 16 - valeur / 8)}s`;
+      cube.style.filter = `drop-shadow(0 0 ${10 + valeur / 2}px rgba(55,138,221,.45))`;
     }
 
     const insight = $("networkInsight");
-    if (insight && !tasks.length) {
-      insight.textContent = `Clarté estimée : ${clarity}%`;
+    if (insight && !taches.length) {
+      insight.textContent = `Clarté estimée : ${clarte}%`;
     }
 
-    document.documentElement.style.setProperty("--ai-power", `${value}%`);
+    document.documentElement.style.setProperty("--ai-power", `${valeur}%`);
   }
 
-  function renderNetwork(plan = lastPlan) {
+  function afficherReseau(planning = dernierPlanning) {
     const svg = $("dependencyNetwork");
     if (!svg) return;
 
-    const source = plan.length ? plan : tasks;
+    const source = planning.length ? planning : taches;
     svg.innerHTML = "";
 
-    const defs = createSvg("defs");
+    const defs = creerSvg("defs");
     defs.innerHTML = `
       <linearGradient id="nodeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stop-color="#8FE3FF"/>
@@ -792,124 +913,125 @@
     svg.appendChild(defs);
 
     if (!source.length) {
-      const empty = svgText(
+      const vide = texteSvg(
         350,
         150,
         "Ajoutez des tâches pour générer la carte intelligente.",
         "network-empty"
       );
-      empty.setAttribute("text-anchor", "middle");
-      svg.appendChild(empty);
+      vide.setAttribute("text-anchor", "middle");
+      svg.appendChild(vide);
       return;
     }
 
-    const positions = source.map((task, index) => {
+    const positions = source.map((tache, index) => {
       const total = source.length;
       const angle = (Math.PI * 2 * index) / total - Math.PI / 2;
-      const radiusX = total <= 3 ? 180 : 250;
-      const radiusY = total <= 3 ? 80 : 105;
+      const rayonX = total <= 3 ? 180 : 250;
+      const rayonY = total <= 3 ? 80 : 105;
 
       return {
-        id: task.id,
-        task,
-        x: 350 + Math.cos(angle) * radiusX,
-        y: 150 + Math.sin(angle) * radiusY,
+        id: tache.id,
+        tache,
+        x: 350 + Math.cos(angle) * rayonX,
+        y: 150 + Math.sin(angle) * rayonY,
       };
     });
 
     const positionMap = new Map(positions.map((item) => [item.id, item]));
 
     positions.forEach((item) => {
-      item.task.dependencies.forEach((depId) => {
-        const dep = positionMap.get(depId);
-        if (!dep) return;
+      item.tache.dependances.forEach((dependanceId) => {
+        const dependance = positionMap.get(dependanceId);
+        if (!dependance) return;
 
-        const path = createSvg("path");
-        const midX = (dep.x + item.x) / 2;
-        const midY = (dep.y + item.y) / 2 - 35;
+        const chemin = creerSvg("path");
+        const milieuX = (dependance.x + item.x) / 2;
+        const milieuY = (dependance.y + item.y) / 2 - 35;
 
-        path.setAttribute("d", `M ${dep.x} ${dep.y} Q ${midX} ${midY} ${item.x} ${item.y}`);
-        path.setAttribute("fill", "none");
-        path.setAttribute("stroke", "#378ADD");
-        path.setAttribute("stroke-width", "2");
-        path.setAttribute("stroke-dasharray", "7 7");
-        path.setAttribute("marker-end", "url(#arrowHead)");
-        path.classList.add("network-link");
+        chemin.setAttribute("d", `M ${dependance.x} ${dependance.y} Q ${milieuX} ${milieuY} ${item.x} ${item.y}`);
+        chemin.setAttribute("fill", "none");
+        chemin.setAttribute("stroke", "#378ADD");
+        chemin.setAttribute("stroke-width", "2");
+        chemin.setAttribute("stroke-dasharray", "7 7");
+        chemin.setAttribute("marker-end", "url(#arrowHead)");
+        chemin.classList.add("network-link");
 
-        svg.appendChild(path);
+        svg.appendChild(chemin);
       });
     });
 
     positions.forEach((item) => {
-      const group = createSvg("g");
-      group.classList.add("network-node");
-      group.dataset.id = item.id;
-      group.style.cursor = "pointer";
+      const groupe = creerSvg("g");
+      groupe.classList.add("network-node");
+      groupe.dataset.id = item.id;
+      groupe.style.cursor = "pointer";
 
-      group.addEventListener("click", () => {
-        selectedTaskId = item.id;
-        renderTaskList();
-        renderNetwork();
-        pulseNode(item.id);
+      groupe.addEventListener("click", () => {
+        tacheSelectionneeId = item.id;
+        afficherListeTaches();
+        afficherReseau();
+        animerNoeud(item.id);
       });
 
-      const circle = createSvg("circle");
-      circle.setAttribute("cx", item.x);
-      circle.setAttribute("cy", item.y);
-      circle.setAttribute("r", selectedTaskId === item.id ? 35 : 29);
-      circle.setAttribute("fill", "url(#nodeGradient)");
-      circle.setAttribute("filter", "url(#nodeGlow)");
-      circle.classList.add("network-circle");
+      const cercle = creerSvg("circle");
+      cercle.setAttribute("cx", item.x);
+      cercle.setAttribute("cy", item.y);
+      cercle.setAttribute("r", tacheSelectionneeId === item.id ? 35 : 29);
+      cercle.setAttribute("fill", "url(#nodeGradient)");
+      cercle.setAttribute("filter", "url(#nodeGlow)");
+      cercle.classList.add("network-circle");
 
-      const icon = svgText(
+      const icone = texteSvg(
         item.x,
         item.y + 7,
-        item.task.priority === 1 ? "★" : item.task.priority === 2 ? "●" : "✓",
+        item.tache.priorite === 1 ? "★" : item.tache.priorite === 2 ? "●" : "✓",
         "network-icon"
       );
-      icon.setAttribute("text-anchor", "middle");
+      icone.setAttribute("text-anchor", "middle");
 
-      const label = svgText(
+      const libelle = texteSvg(
         item.x,
         item.y + 52,
-        item.task.title.length > 18 ? item.task.title.slice(0, 18) + "…" : item.task.title,
+        item.tache.titre.length > 18 ? item.tache.titre.slice(0, 18) + "…" : item.tache.titre,
         "network-label"
       );
-      label.setAttribute("text-anchor", "middle");
+      libelle.setAttribute("text-anchor", "middle");
 
-      group.appendChild(circle);
-      group.appendChild(icon);
-      group.appendChild(label);
+      groupe.appendChild(cercle);
+      groupe.appendChild(icone);
+      groupe.appendChild(libelle);
 
-      svg.appendChild(group);
+      svg.appendChild(groupe);
     });
   }
 
-  function pulseNode(id) {
-    const node = document.querySelector(`.network-node[data-id="${id}"]`);
-    if (!node) return;
+  function animerNoeud(id) {
+    const noeud = Array.from(document.querySelectorAll(".network-node"))
+      .find((element) => element.dataset.id === id);
+    if (!noeud) return;
 
-    node.classList.remove("pulse-node");
-    void node.offsetWidth;
-    node.classList.add("pulse-node");
+    noeud.classList.remove("pulse-node");
+    void noeud.offsetWidth;
+    noeud.classList.add("pulse-node");
   }
 
-  function updateWidgetInsight() {
+  function mettreAJourInsightWidget() {
     const insight = $("networkInsight");
     if (!insight) return;
 
-    if (!tasks.length) {
+    if (!taches.length) {
       insight.textContent = "Analyse en attente…";
       return;
     }
 
-    const totalHours = tasks.reduce((sum, task) => sum + Number(task.duration), 0);
-    const depCount = tasks.reduce((sum, task) => sum + task.dependencies.length, 0);
+    const totalHeures = taches.reduce((somme, tache) => somme + Number(tache.duree), 0);
+    const nombreDependances = taches.reduce((somme, tache) => somme + tache.dependances.length, 0);
 
-    insight.textContent = `${tasks.length} tâche(s), ${totalHours}h, ${depCount} lien(s)`;
+    insight.textContent = `${taches.length} tâche(s), ${totalHeures}h, ${nombreDependances} lien(s)`;
   }
 
-  function start3DInteraction() {
+  function demarrerInteraction3D() {
     const scene = document.querySelector(".holo-scene");
     const cube = $("holoCube");
 
@@ -1288,8 +1410,8 @@
     document.head.appendChild(style);
   }
 
-  window.saveTask = saveTask;
-  window.resetForm = resetForm;
-  window.calculatePlan = calculatePlan;
-  window.resetAll = resetAll;
+  window.saveTask = sauvegarderTache;
+  window.resetForm = reinitialiserFormulaire;
+  window.calculatePlan = calculerPlanning;
+  window.resetAll = reinitialiserTout;
 })();
