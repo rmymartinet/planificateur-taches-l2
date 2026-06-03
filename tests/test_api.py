@@ -1,3 +1,6 @@
+import json
+
+
 def test_get_taches_cas_valide_retourne_liste(client):
     # Simule un appel à GET /api/taches.
     response = client.get("/api/taches")
@@ -146,3 +149,126 @@ def test_delete_tache_cas_introuvable_retourne_404(client):
     data = response.get_json()
     assert "error" in data
     assert "introuvable" in data["error"]
+
+
+def test_add_tache_cas_valide_persiste_duree(client, fichier_taches_temporaire):
+    nouvelle_tache = {
+        "id": 1100,
+        "titre": "Tache avec duree persistante",
+        "dependances": [],
+        "priorite": 2,
+        "duree": 7.5,
+    }
+
+    response = client.post("/api/tache", json=nouvelle_tache)
+    assert response.status_code == 201
+
+    contenu = json.loads(fichier_taches_temporaire.read_text(encoding="utf-8"))
+    taches = contenu["taches"]
+    tache_creee = next((t for t in taches if t["id"] == 1100), None)
+
+    assert tache_creee is not None
+    assert tache_creee["duree"] == 7.5
+
+
+def test_update_tache_cas_valide_persiste_duree(client, fichier_taches_temporaire):
+    payload_update = {"duree": 9.25}
+
+    response = client.put("/api/tache/1", json=payload_update)
+    assert response.status_code == 200
+
+    contenu = json.loads(fichier_taches_temporaire.read_text(encoding="utf-8"))
+    taches = contenu["taches"]
+    tache_maj = next((t for t in taches if str(t["id"]) == "1"), None)
+
+    assert tache_maj is not None
+    assert tache_maj["duree"] == 9.25
+
+
+def test_add_tache_cas_duree_invalide_retourne_400(client):
+    valeurs_invalides = [0, -3, "abc", True, False]
+
+    for i, duree_invalide in enumerate(valeurs_invalides, start=1):
+        payload = {
+            "id": f"invalid-duree-post-{i}",
+            "titre": "Duree invalide",
+            "dependances": [],
+            "priorite": 1,
+            "duree": duree_invalide,
+        }
+
+        response = client.post("/api/tache", json=payload)
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "error" in data
+        assert "duree" in data["error"].lower()
+
+
+def test_update_tache_cas_duree_invalide_retourne_400(client):
+    valeurs_invalides = [0, -1, "pas-un-nombre", True, False]
+
+    for duree_invalide in valeurs_invalides:
+        response = client.put("/api/tache/1", json={"duree": duree_invalide})
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "error" in data
+        assert "duree" in data["error"].lower()
+
+
+def test_add_tache_cas_json_invalide_retourne_400(client):
+    response = client.post(
+        "/api/tache",
+        data='{"id": 2000, "titre": "JSON casse",',
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "error" in data
+    assert "json invalide" in data["error"].lower()
+
+
+def test_update_tache_cas_json_invalide_retourne_400(client):
+    response = client.put(
+        "/api/tache/1",
+        data='{"titre": "JSON casse",',
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "error" in data
+    assert "json invalide" in data["error"].lower()
+
+
+def test_update_tache_cas_tente_modifier_id_retourne_400(client):
+    response = client.put("/api/tache/1", json={"id": 9999})
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "error" in data
+    assert "id" in data["error"].lower()
+    assert "ne peut pas" in data["error"].lower()
+
+
+def test_update_tache_cas_dependances_inconnues_retourne_400(client):
+    response = client.put("/api/tache/1", json={"dependances": [9999, "inconnu"]})
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "error" in data
+    assert "dépendance" in data["error"].lower() or "dependance" in data["error"].lower()
+    assert "inconnue" in data["error"].lower()
+
+
+def test_delete_tache_cas_valide_nettoie_dependances_des_autres_taches(client):
+    response = client.delete("/api/tache/1")
+    assert response.status_code == 200
+
+    taches_response = client.get("/api/taches")
+    assert taches_response.status_code == 200
+    taches = taches_response.get_json()
+
+    tache_dependante = next((t for t in taches if str(t["id"]) == "2"), None)
+    assert tache_dependante is not None
+    assert tache_dependante["dependances"] == []
