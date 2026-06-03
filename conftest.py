@@ -17,8 +17,8 @@ def fichier_taches_temporaire(tmp_path, monkeypatch):
     fichier_temp = tmp_path / "taches_test.json"
     donnees = {
         "taches": [
-            {"id": 1, "titre": "Tache 1", "dependances": [], "priorite": 1},
-            {"id": 2, "titre": "Tache 2", "dependances": [1], "priorite": 2}
+            {"id": 1, "titre": "Tache 1", "dependances": [], "priorite": 1, "duree": 1},
+            {"id": 2, "titre": "Tache 2", "dependances": [1], "priorite": 2, "duree": 2}
         ]
     }
     fichier_temp.write_text(json.dumps(donnees, ensure_ascii=False, indent=2), encoding="utf-8")

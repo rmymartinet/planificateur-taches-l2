@@ -1,5 +1,5 @@
 
-CHAMPS_OBLIGATOIRES = ("id", "titre", "dependances", "priorite")
+CHAMPS_OBLIGATOIRES = ("id", "titre", "dependances", "priorite", "duree")
 
 
 def valider_taches(taches):
@@ -10,6 +10,7 @@ def valider_taches(taches):
     - titre: str non vide
     - dependances: list
     - priorite: int >= 1
+    - duree: int ou float > 0
     """
 
     if not isinstance(taches, list):
@@ -42,6 +43,13 @@ def valider_taches(taches):
         if not isinstance(tache["priorite"], int) or tache["priorite"] < 1:
             raise ValueError(f"Le champ 'priorite' de la tâche '{tache['id']}' doit être un entier >= 1.")
 
+        if (
+            not isinstance(tache["duree"], (int, float))
+            or isinstance(tache["duree"], bool) # Python considère True et False comme int
+            or tache["duree"] <= 0
+        ):
+            raise ValueError(f"Le champ 'duree' de la tâche '{tache['id']}' doit être un nombre > 0.")
+
 def valider_tache(tache):
     """Valide une tâche individuelle, utile pour l'API POST /api/tache"""
 
@@ -65,6 +73,13 @@ def valider_tache(tache):
 
     if not isinstance(tache["priorite"], int) or tache["priorite"] < 1:
         raise ValueError("Le champ 'priorite' doit être un entier >= 1.")
+
+    if (
+        not isinstance(tache["duree"], (int, float))
+        or isinstance(tache["duree"], bool) # Python considère True et False comme int
+        or tache["duree"] <= 0
+    ):
+        raise ValueError("Le champ 'duree' doit être un nombre > 0.")
 
 
 def construire_graphe(taches):

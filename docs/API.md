@@ -38,19 +38,22 @@ L'API permet de :
     "id": 1,
     "titre": "Installer le projet",
     "dependances": [],
-    "priorite": 1
+    "priorite": 1,
+    "duree": 1
   },
   {
     "id": 2,
     "titre": "Configurer le backend",
     "dependances": [1],
-    "priorite": 2
+    "priorite": 2,
+    "duree": 2
   },
   {
     "id": 3,
     "titre": "Tester le chargement des taches",
     "dependances": [2],
-    "priorite": 3
+    "priorite": 3,
+    "duree": 1.5
   }
 ]
 ```
@@ -118,7 +121,8 @@ Content-Type: application/json
   "id": 999,
   "titre": "Ma nouvelle tâche",
   "dependances": [1, 2],
-  "priorite": 5
+  "priorite": 5,
+  "duree": 2
 }
 ```
 
@@ -128,6 +132,7 @@ Content-Type: application/json
 - `titre` (chaîne) : Nom/description de la tâche
 - `dependances` (liste) : Liste des IDs des taches dont dépend celle-ci
 - `priorite` (entier >= 1) : Niveau de priorité
+- `duree` (nombre > 0) : Durée estimée de la tâche en heures
 
 **Réponse (201 - Créée avec succès):**
 
@@ -170,7 +175,8 @@ curl -X POST http://localhost:5000/api/tache \
     "id": 10,
     "titre": "Nouvelle fonctionnalité",
     "dependances": [],
-    "priorite": 3
+    "priorite": 3,
+    "duree": 1
   }'
 ```
 
@@ -183,7 +189,8 @@ curl -X POST http://localhost:5000/api/tache \
     "id": 11,
     "titre": "Déboguer la fonctionnalité",
     "dependances": [10],
-    "priorite": 4
+    "priorite": 4,
+    "duree": 2.5
   }'
 ```
 
@@ -204,7 +211,7 @@ curl http://localhost:5000/api/taches
 ```bash
 curl -X POST http://localhost:5000/api/tache \
   -H "Content-Type: application/json" \
-  -d '{"id": 100, "titre": "Tâche test", "dependances": [], "priorite": 1}'
+  -d '{"id": 100, "titre": "Tâche test", "dependances": [], "priorite": 1, "duree": 1}'
 ```
 
 3. **Récupérer l'ordre d'exécution:**
@@ -218,6 +225,7 @@ curl http://localhost:5000/api/ordre
 ## Notes importantes
 
 - **Doublons :** L'API empêche l'ajout de deux taches avec le même ID
+- **Durée :** Le champ `duree` est obligatoire pour l'ajout et la modification, et doit être un nombre strictement supérieur à 0
 - **Cycles :** Si une dépendance circulaire est détectée, l'API retourne une erreur 400
 - **Persistance :** Les taches sont sauvegardées dans `data/taches.json`
 - **CORS :** L'API supporte CORS, le frontend peut l'appeler depuis n'importe quel domaine

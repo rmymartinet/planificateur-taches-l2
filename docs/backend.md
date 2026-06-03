@@ -34,6 +34,7 @@ Chaque tâche est un objet JSON avec les champs obligatoires suivants:
 - titre: str non vide.
 - dependances: list des identifiants de tâches dont elle dépend.
 - priorite: int >= 1 (plus grand = plus prioritaire).
+- duree: int ou float > 0, durée estimée en heures.
 
 Exemple:
 
@@ -41,6 +42,7 @@ Exemple:
 {
 	"id": "A",
 	"titre": "Initialiser le projet",
+	"duree": 1.5,
 	"dependances": [],
 	"priorite": 3
 }
@@ -54,6 +56,7 @@ Le fichier [data/taches.json](data/taches.json) est stocké sous la forme:
 		{
 			"id": "A",
 			"titre": "...",
+			"duree": 1,
 			"dependances": [],
 			"priorite": 1
 		}
@@ -92,6 +95,13 @@ Détail du tri:
 - Un noeud est disponible si son indegree vaut 0.
 - Parmi les noeuds disponibles, le backend prend celui avec la valeur priorite la plus élevée.
 - Si un cycle existe, aucune solution complète n'est possible et une erreur est levée.
+
+Validation métier actuelle:
+- `id` doit être un entier ou une chaîne.
+- `titre` doit être une chaîne non vide.
+- `dependances` doit être une liste.
+- `priorite` doit être un entier supérieur ou égal à 1.
+- `duree` doit être un nombre strictement supérieur à 0.
 
 Erreur cycle:
 - ValueError: Cycle de dépendances détecté dans les taches

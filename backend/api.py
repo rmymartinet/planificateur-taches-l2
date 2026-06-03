@@ -75,6 +75,7 @@ def update_tache(tache_id):
       "titre": data.get("titre", tache_existante.get("titre")),
       "dependances": data.get("dependances", tache_existante.get("dependances")),
       "priorite": data.get("priorite", tache_existante.get("priorite")),
+      "duree": data.get("duree", tache_existante.get("duree")),
     }
 
     if "id" in data and str(data["id"]) != str(tache_existante["id"]):

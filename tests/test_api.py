@@ -16,6 +16,7 @@ def test_get_taches_cas_valide_retourne_liste(client):
         assert "titre" in tache
         assert "dependances" in tache
         assert "priorite" in tache
+        assert "duree" in tache
 
 def test_get_ordre_cas_valide_retourne_ordre(client):
     taches_response = client.get("/api/taches")
@@ -39,6 +40,7 @@ def test_add_tache_cas_valide_retourne_201(client):
         "titre": "Tâche de test",
         "dependances": [],
         "priorite": 1,
+        "duree": 2,
     }
 
     response = client.post("/api/tache", json=nouvelle_tache)
@@ -65,14 +67,15 @@ def test_add_tache_cas_champs_manquants_retourne_400(client):
     assert response.status_code == 400
     data = response.get_json()
     assert "error" in data
-    assert "dependances" in data["error"] or "priorite" in data["error"]
+    assert any(champ in data["error"] for champ in ("dependances", "priorite", "duree"))
 
 def test_add_tache_cas_id_duplique_retourne_400(client):
     tache_dupliquee = {
         "id": 1,  # Même ID que dans le jeu de données initial.
         "titre": "Tâche dupliquée",
         "dependances": [],
-        "priorite": 1
+        "priorite": 1,
+        "duree": 1,
     }
 
     response = client.post("/api/tache", json=tache_dupliquee)
@@ -88,14 +91,16 @@ def test_update_tache_cas_valide_modifie_tache(client):
         "id": 1001,
         "titre": "Tâche à modifier",
         "dependances": [],
-        "priorite": 2
+        "priorite": 2,
+        "duree": 3,
     }
     client.post("/api/tache", json=nouvelle_tache)
 
     payload_update = {
         "titre": "Tâche modifiée",
         "dependances": [],
-        "priorite": 1
+        "priorite": 1,
+        "duree": 4,
     }
 
     response = client.put("/api/tache/1001", json=payload_update)
@@ -104,6 +109,7 @@ def test_update_tache_cas_valide_modifie_tache(client):
     assert "message" in data
     assert data["tache"]["titre"] == "Tâche modifiée"
     assert data["tache"]["priorite"] == 1
+    assert data["tache"]["duree"] == 4
 
 
 def test_update_tache_cas_introuvable_retourne_404(client):
@@ -119,7 +125,8 @@ def test_delete_tache_cas_valide_supprime_tache(client):
         "id": 1002,
         "titre": "Tâche à supprimer",
         "dependances": [],
-        "priorite": 3
+        "priorite": 3,
+        "duree": 1,
     }
     client.post("/api/tache", json=nouvelle_tache)
 

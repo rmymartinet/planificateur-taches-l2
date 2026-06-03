@@ -4,7 +4,8 @@
       "id": 1,
       "titre": "Installer le projet",
       "dependances": [],
-      "priorite": 1
+      "priorite": 1,
+      "duree": 1
     },
     {
       "id": 2,
@@ -12,7 +13,8 @@
       "dependances": [
         1
       ],
-      "priorite": 2
+      "priorite": 2,
+      "duree": 1
     },
     {
       "id": 3,
@@ -20,15 +22,18 @@
       "dependances": [
         2
       ],
-      "priorite": 3
+      "priorite": 3,
+      "duree": 1
     },
     {
       "dependances": [],
+      "duree": 1,
       "id": 999,
       "priorite": 1,
       "titre": "Tâche de test"
     },
     {
+      "duree": 1,
       "id": 1001,
       "titre": "Tâche modifiée",
       "dependances": [],
