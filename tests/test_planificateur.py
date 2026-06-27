@@ -1,4 +1,5 @@
 import pytest
+from datetime import date, timedelta
 
 from planificateur import (
     construire_graphe,
@@ -6,6 +7,7 @@ from planificateur import (
     calcule_indegrees,
     tri_topo,
     valider_taches,
+    calculer_planning,
 )
 
 
@@ -169,3 +171,77 @@ def test_tri_topo_cas_priorites_dependances_multiples_retourne_ordre_attendu():
 
     ordre = tri_topo(taches)
     assert ordre == ["B", "E", "A", "D", "C"]
+
+
+# --- Tests calculer_planning ---
+
+DATE_REF = date(2026, 1, 1)
+
+
+def test_calculer_planning_cas_simple_sans_dependances():
+    taches = [
+        {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1, "duree": 3},
+    ]
+    planning = calculer_planning(taches, date_debut=DATE_REF)
+    assert len(planning) == 1
+    assert planning[0]["date_debut"] == "2026-01-01"
+    assert planning[0]["date_fin"] == "2026-01-04"
+    assert planning[0]["duree"] == 3
+
+
+def test_calculer_planning_cas_chaine_dates_enchainees():
+    taches = [
+        {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1, "duree": 2},
+        {"id": "B", "titre": "Tache B", "dependances": ["A"], "priorite": 1, "duree": 3},
+    ]
+    planning = calculer_planning(taches, date_debut=DATE_REF)
+    par_id = {p["id"]: p for p in planning}
+
+    assert par_id["A"]["date_debut"] == "2026-01-01"
+    assert par_id["A"]["date_fin"] == "2026-01-03"
+    assert par_id["B"]["date_debut"] == "2026-01-03"
+    assert par_id["B"]["date_fin"] == "2026-01-06"
+
+
+def test_calculer_planning_cas_duree_par_defaut_vaut_1():
+    taches = [
+        {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1},
+    ]
+    planning = calculer_planning(taches, date_debut=DATE_REF)
+    assert planning[0]["duree"] == 1
+    assert planning[0]["date_fin"] == "2026-01-02"
+
+
+def test_calculer_planning_cas_date_debut_chaine_iso():
+    taches = [
+        {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1, "duree": 1},
+    ]
+    planning = calculer_planning(taches, date_debut="2026-06-01")
+    assert planning[0]["date_debut"] == "2026-06-01"
+    assert planning[0]["date_fin"] == "2026-06-02"
+
+
+def test_calculer_planning_cas_cycle_leve_erreur():
+    taches = [
+        {"id": "A", "titre": "Tache A", "dependances": ["B"], "priorite": 1, "duree": 1},
+        {"id": "B", "titre": "Tache B", "dependances": ["A"], "priorite": 1, "duree": 1},
+    ]
+    with pytest.raises(ValueError, match="Cycle de dépendances détecté"):
+        calculer_planning(taches)
+
+
+def test_calculer_planning_cas_debut_max_dependances():
+    # B et C sont parallèles, D attend la plus longue (C=5j)
+    taches = [
+        {"id": "A", "titre": "Tache A", "dependances": [], "priorite": 1, "duree": 1},
+        {"id": "B", "titre": "Tache B", "dependances": ["A"], "priorite": 2, "duree": 2},
+        {"id": "C", "titre": "Tache C", "dependances": ["A"], "priorite": 1, "duree": 5},
+        {"id": "D", "titre": "Tache D", "dependances": ["B", "C"], "priorite": 1, "duree": 1},
+    ]
+    planning = calculer_planning(taches, date_debut=DATE_REF)
+    par_id = {p["id"]: p for p in planning}
+
+    # A: 01-01 → 01-02, B: 01-02 → 01-04, C: 01-02 → 01-07
+    # D doit démarrer après max(01-04, 01-07) = 01-07
+    assert par_id["D"]["date_debut"] == "2026-01-07"
+    assert par_id["D"]["date_fin"] == "2026-01-08"

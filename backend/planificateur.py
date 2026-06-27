@@ -1,5 +1,8 @@
 
-CHAMPS_OBLIGATOIRES = ("id", "titre", "dependances", "priorite", "duree")
+from datetime import date, timedelta
+
+CHAMPS_OBLIGATOIRES = ("id", "titre", "dependances", "priorite")
+DUREE_PAR_DEFAUT = 1
 
 
 def valider_taches(taches):
@@ -10,7 +13,9 @@ def valider_taches(taches):
     - titre: str non vide
     - dependances: list
     - priorite: int >= 1
-    - duree: int ou float > 0
+
+    Champs optionnels:
+    - duree: int ou float > 0 (jours), défaut 1
     """
 
     if not isinstance(taches, list):
@@ -43,9 +48,9 @@ def valider_taches(taches):
         if not isinstance(tache["priorite"], int) or tache["priorite"] < 1:
             raise ValueError(f"Le champ 'priorite' de la tâche '{tache['id']}' doit être un entier >= 1.")
 
-        if (
+        if "duree" in tache and (
             not isinstance(tache["duree"], (int, float))
-            or isinstance(tache["duree"], bool) # Python considère True et False comme int
+            or isinstance(tache["duree"], bool)
             or tache["duree"] <= 0
         ):
             raise ValueError(f"Le champ 'duree' de la tâche '{tache['id']}' doit être un nombre > 0.")
@@ -74,9 +79,9 @@ def valider_tache(tache):
     if not isinstance(tache["priorite"], int) or tache["priorite"] < 1:
         raise ValueError("Le champ 'priorite' doit être un entier >= 1.")
 
-    if (
+    if "duree" in tache and (
         not isinstance(tache["duree"], (int, float))
-        or isinstance(tache["duree"], bool) # Python considère True et False comme int
+        or isinstance(tache["duree"], bool)
         or tache["duree"] <= 0
     ):
         raise ValueError("Le champ 'duree' doit être un nombre > 0.")
@@ -162,5 +167,51 @@ def tri_topo(taches):
     #Détection de cycle si tous les noeuds n'ont pas été ajoutés au résultat
     if len(resultat) != len(graphe):
         raise ValueError("Cycle de dépendances détecté dans les taches")
-    
+
     return resultat
+
+
+def calculer_planning(taches, date_debut=None):
+    """Calcule les dates de début et de fin pour chaque tâche.
+
+    Retourne une liste de dicts avec les champs:
+    - id, titre, date_debut (ISO), date_fin (ISO), duree (jours)
+
+    date_debut: date de début du projet (date ou str ISO 'YYYY-MM-DD'), défaut = aujourd'hui
+    """
+
+    if date_debut is None:
+        date_debut = date.today()
+    elif isinstance(date_debut, str):
+        date_debut = date.fromisoformat(date_debut)
+
+    ordre = tri_topo(taches)
+
+    taches_par_id = {t["id"]: t for t in taches}
+
+    # date_fin[id] = date de fin de la tâche id
+    date_fin_par_id = {}
+
+    planning = []
+    for id_tache in ordre:
+        tache = taches_par_id[id_tache]
+        duree = tache.get("duree", DUREE_PAR_DEFAUT)
+
+        dependances = tache["dependances"]
+        if dependances:
+            debut = max(date_fin_par_id[dep] for dep in dependances)
+        else:
+            debut = date_debut
+
+        fin = debut + timedelta(days=duree)
+        date_fin_par_id[id_tache] = fin
+
+        planning.append({
+            "id": id_tache,
+            "titre": tache["titre"],
+            "duree": duree,
+            "date_debut": debut.isoformat(),
+            "date_fin": fin.isoformat(),
+        })
+
+    return planning
