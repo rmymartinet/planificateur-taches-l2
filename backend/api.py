@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from planificateur import tri_topo, valider_tache
+from planificateur import calculer_planning, tri_topo, valider_tache
 from stockage import charger_taches, sauvegarder_taches
 
 app = Flask(__name__)
@@ -26,6 +26,35 @@ def get_ordre():
     taches = charger_taches()
     ordre = tri_topo(taches)
     return jsonify({"ordre": ordre})
+  except ValueError as e:
+    return jsonify({"error": str(e)}), 400
+  except Exception as e:
+    return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/plan", methods=["POST"])
+def add_plan():
+  try:
+    #silent=True pour éviter une exception si le JSON est mal formé, on gère ça nous même
+    data = request.get_json(silent=True)
+
+    # Accepte un body absent, mais refuse un JSON mal formé.
+    if data is None:
+      if request.data and request.data.strip():
+        return jsonify({"error": "Requête JSON invalide"}), 400
+      data = {}
+
+    if not isinstance(data, dict):
+      return jsonify({"error": "Le corps de la requête doit être un objet JSON."}), 400
+
+    date_debut = data.get("date_debut")
+    if date_debut is not None and not isinstance(date_debut, str):
+      return jsonify({"error": "Le champ 'date_debut' doit être une chaîne au format YYYY-MM-DD."}), 400
+
+    taches = charger_taches()
+    planning = calculer_planning(taches, date_debut=date_debut)
+
+    return jsonify({"planning": planning}), 200
   except ValueError as e:
     return jsonify({"error": str(e)}), 400
   except Exception as e:
@@ -75,8 +104,13 @@ def update_tache(tache_id):
       "titre": data.get("titre", tache_existante.get("titre")),
       "dependances": data.get("dependances", tache_existante.get("dependances")),
       "priorite": data.get("priorite", tache_existante.get("priorite")),
-      "duree": data.get("duree", tache_existante.get("duree")),
     }
+
+    # Le champ 'duree' est optionnel
+    if "duree" in data:
+      tache_maj["duree"] = data["duree"]
+    elif "duree" in tache_existante:
+      tache_maj["duree"] = tache_existante["duree"]
 
     if "id" in data and str(data["id"]) != str(tache_existante["id"]):
       return jsonify({"error": "Le champ 'id' ne peut pas être modifié."}), 400

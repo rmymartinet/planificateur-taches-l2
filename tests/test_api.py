@@ -172,3 +172,42 @@ def test_post_plan_cas_dates_coherentes(client):
     # date_fin > date_debut pour chaque tâche
     for entree in planning:
         assert entree["date_fin"] > entree["date_debut"]
+
+
+def test_post_plan_cas_json_mal_forme_retourne_400(client):
+    response = client.post(
+        "/api/plan",
+        data='{"date_debut":',
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "error" in data
+    assert "JSON invalide" in data["error"]
+
+
+def test_post_plan_cas_body_non_objet_retourne_400(client):
+    response = client.post("/api/plan", json=[{"date_debut": "2026-01-01"}])
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "error" in data
+    assert "objet JSON" in data["error"]
+
+
+def test_post_plan_cas_date_debut_type_invalide_retourne_400(client):
+    response = client.post("/api/plan", json={"date_debut": 20260101})
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "error" in data
+    assert "date_debut" in data["error"]
+
+
+def test_post_plan_cas_date_debut_format_invalide_retourne_400(client):
+    response = client.post("/api/plan", json={"date_debut": "01-01-2026"})
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "error" in data
