@@ -8,7 +8,8 @@ L'API permet de :
 
 - Récupérer la liste des taches
 - Calculer l'ordre d'exécution optimal (tri topologique)
-- Ajouter de nouvelles taches
+- Calculer un planning avec dates de début et de fin
+- Ajouter, modifier et supprimer des taches
 
 ## Configuration
 
@@ -100,7 +101,62 @@ L'API permet de :
 
 ---
 
-### 3. POST /api/tache
+### 3. POST /api/plan
+
+**Description:** Calcule un planning avec les dates de début et de fin pour chaque tâche, en respectant les dépendances.
+
+**Méthode HTTP:** `POST`
+
+**URL:** `/api/plan`
+
+**En-têtes:** `Content-Type: application/json` (optionnel si body absent)
+
+**Corps de la requête (optionnel):**
+
+```json
+{
+  "date_debut": "2026-07-01"
+}
+```
+
+**Paramètres optionnels:**
+
+- `date_debut` (chaîne `YYYY-MM-DD`) : date de départ du planning. Défaut: aujourd'hui.
+
+Le body peut être absent ou vide `{}` ; un JSON mal formé retourne une erreur 400.
+
+**Réponse (200 - Succès):**
+
+```json
+{
+  "planning": [
+    {
+      "id": 1,
+      "titre": "Installer le projet",
+      "duree": 1,
+      "date_debut": "2026-07-01",
+      "date_fin": "2026-07-02"
+    },
+    {
+      "id": 2,
+      "titre": "Configurer le backend",
+      "duree": 2,
+      "date_debut": "2026-07-02",
+      "date_fin": "2026-07-04"
+    }
+  ]
+}
+```
+
+**Codes HTTP possibles:**
+
+- `200 OK` : Planning calculé avec succès
+- `400 Bad Request` : JSON mal formé, `date_debut` invalide, ou cycle détecté
+- `500 Erreur serveur` : Problème lors du calcul
+
+---
+
+### 4. POST /api/tache
 
 **Description:** Ajoute une nouvelle tâche à la liste et la sauvegarde dans le fichier JSON.
 
@@ -132,7 +188,10 @@ Content-Type: application/json
 - `titre` (chaîne) : Nom/description de la tâche
 - `dependances` (liste) : Liste des IDs des taches dont dépend celle-ci
 - `priorite` (entier >= 1) : Niveau de priorité
-- `duree` (nombre > 0) : Durée estimée de la tâche en heures
+
+**Paramètres optionnels:**
+
+- `duree` (nombre > 0) : Durée en jours (défaut: 1)
 
 **Réponse (201 - Créée avec succès):**
 
@@ -164,35 +223,80 @@ Content-Type: application/json
 - `400 Bad Request` : Données invalides (champs manquants, ID dupliqué, etc.)
 - `500 Erreur serveur` : Problème lors de la sauvegarde
 
-**Exemples de requêtes valides:**
+---
 
-Ajouter une tâche simple (sans dépendances) :
+### 5. PUT /api/tache/<tache_id>
 
-```bash
-curl -X POST http://localhost:5000/api/tache \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": 10,
-    "titre": "Nouvelle fonctionnalité",
-    "dependances": [],
-    "priorite": 3,
-    "duree": 1
-  }'
+**Description:** Modifie une tâche existante identifiée par son ID. L'`id` de la tâche ne peut pas être changé.
+
+**Méthode HTTP:** `PUT`
+
+**URL:** `/api/tache/<tache_id>`
+
+**En-têtes requis:**
+
+```
+Content-Type: application/json
 ```
 
-Ajouter une tâche avec dépendances :
+**Corps de la requête:** Les champs à modifier (les champs absents conservent leur valeur actuelle).
 
-```bash
-curl -X POST http://localhost:5000/api/tache \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": 11,
-    "titre": "Déboguer la fonctionnalité",
-    "dependances": [10],
+```json
+{
+  "titre": "Nouveau titre",
+  "priorite": 4,
+  "dependances": [1],
+  "duree": 3
+}
+```
+
+**Réponse (200 - Succès):**
+
+```json
+{
+  "message": "Tâche modifiée avec succès!",
+  "tache": {
+    "id": 2,
+    "titre": "Nouveau titre",
+    "dependances": [1],
     "priorite": 4,
-    "duree": 2.5
-  }'
+    "duree": 3
+  }
+}
 ```
+
+**Codes HTTP possibles:**
+
+- `200 OK` : Tâche modifiée avec succès
+- `400 Bad Request` : JSON invalide, tentative de modifier l'`id`, ou dépendance inconnue
+- `404 Not Found` : Tâche introuvable
+- `500 Erreur serveur` : Problème lors de la sauvegarde
+
+---
+
+### 6. DELETE /api/tache/<tache_id>
+
+**Description:** Supprime une tâche par son ID. Les références à cette tâche dans les `dependances` des autres tâches sont automatiquement retirées.
+
+**Méthode HTTP:** `DELETE`
+
+**URL:** `/api/tache/<tache_id>`
+
+**Paramètres:** Aucun
+
+**Réponse (200 - Succès):**
+
+```json
+{
+  "message": "Tâche supprimée avec succès!"
+}
+```
+
+**Codes HTTP possibles:**
+
+- `200 OK` : Tâche supprimée avec succès
+- `404 Not Found` : Tâche introuvable
+- `500 Erreur serveur` : Problème lors de la sauvegarde
 
 ---
 
@@ -220,12 +324,34 @@ curl -X POST http://localhost:5000/api/tache \
 curl http://localhost:5000/api/ordre
 ```
 
+4. **Calculer le planning:**
+
+```bash
+curl -X POST http://localhost:5000/api/plan \
+  -H "Content-Type: application/json" \
+  -d '{"date_debut": "2026-07-01"}'
+```
+
+5. **Modifier une tâche:**
+
+```bash
+curl -X PUT http://localhost:5000/api/tache/100 \
+  -H "Content-Type: application/json" \
+  -d '{"priorite": 5}'
+```
+
+6. **Supprimer une tâche:**
+
+```bash
+curl -X DELETE http://localhost:5000/api/tache/100
+```
+
 ---
 
 ## Notes importantes
 
 - **Doublons :** L'API empêche l'ajout de deux taches avec le même ID
-- **Durée :** Le champ `duree` est obligatoire pour l'ajout et la modification, et doit être un nombre strictement supérieur à 0
+- **Durée :** Le champ `duree` est optionnel (défaut: 1 jour) et doit être un nombre strictement supérieur à 0
 - **Cycles :** Si une dépendance circulaire est détectée, l'API retourne une erreur 400
 - **Persistance :** Les taches sont sauvegardées dans `data/taches.json`
 - **CORS :** L'API supporte CORS, le frontend peut l'appeler depuis n'importe quel domaine

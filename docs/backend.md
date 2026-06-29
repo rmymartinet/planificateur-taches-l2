@@ -19,7 +19,7 @@ Objectifs fonctionnels:
 ## Structure backend
 
 - [backend/api.py](backend/api.py): API REST Flask.
-- [backend/planificateur.py](backend/planificateur.py): validation métier, graphe de dépendances, tri topologique.
+- [backend/planificateur.py](backend/planificateur.py): validation métier, graphe de dépendances, tri topologique, calcul du planning avec dates.
 - [backend/stockage.py](backend/stockage.py): lecture/écriture du JSON de données.
 - [backend/application.py](backend/application.py): point d'entrée CLI (affichage de l'ordre d'exécution).
 
@@ -34,7 +34,10 @@ Chaque tâche est un objet JSON avec les champs obligatoires suivants:
 - titre: str non vide.
 - dependances: list des identifiants de tâches dont elle dépend.
 - priorite: int >= 1 (plus grand = plus prioritaire).
-- duree: int ou float > 0, durée estimée en heures.
+
+Champ optionnel:
+
+- duree: int ou float > 0, durée en jours (défaut: 1).
 
 Exemple:
 
@@ -101,10 +104,21 @@ Validation métier actuelle:
 - `titre` doit être une chaîne non vide.
 - `dependances` doit être une liste.
 - `priorite` doit être un entier supérieur ou égal à 1.
-- `duree` doit être un nombre strictement supérieur à 0.
+- `duree` (optionnel) doit être un nombre strictement supérieur à 0.
 
 Erreur cycle:
 - ValueError: Cycle de dépendances détecté dans les taches
+
+## Calcul du planning
+
+La fonction `calculer_planning(taches, date_debut=None)` de [backend/planificateur.py](backend/planificateur.py) calcule les dates de début et de fin de chaque tâche:
+
+- Appelle `tri_topo` pour obtenir un ordre valide.
+- Pour chaque tâche, la date de début est la date de fin de la dernière dépendance (ou `date_debut` si aucune dépendance).
+- La date de fin est `date_debut_tache + duree` jours.
+- `date_debut` accepte une chaîne ISO `YYYY-MM-DD` ou `None` (défaut: aujourd'hui).
+
+Chaque entrée du planning retourné contient: `id`, `titre`, `duree`, `date_debut` (ISO), `date_fin` (ISO).
 
 ## Persistance des données
 
