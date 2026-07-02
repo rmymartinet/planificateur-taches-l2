@@ -11,6 +11,7 @@
     taches: "/api/taches",
     ordre: "/api/ordre",
     tache: "/api/tache",
+    plan: "/api/plan",
   };
 
   let taches = [];
@@ -22,6 +23,15 @@
 
   const uid = () =>
     "tache_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+
+  const prochainId = () => {
+    const idsNumeriques = taches
+      .map((tache) => Number(tache.id))
+      .filter((valeur) => Number.isFinite(valeur));
+
+    const max = idsNumeriques.length ? Math.max(...idsNumeriques) : 0;
+    return max + 1;
+  };
 
   const escapeHtml = (valeur) =>
     String(valeur)
@@ -298,7 +308,7 @@
           <div class="task-card ${tacheSelectionneeId === tache.id ? "selected" : ""}" data-tache-id="${escapeHtml(tache.id)}">
             <div class="task-info">
               <div class="task-name">${escapeHtml(tache.titre)}</div>
-              <div class="task-meta">${tache.duree}h • ${texteDependances}</div>
+              <div class="task-meta">${tache.duree}J • ${texteDependances}</div>
             </div>
 
             <div class="task-actions">
@@ -368,7 +378,7 @@
     }
 
     const tache = {
-      id: editId || uid(),
+      id: editId || prochainId(),
       titre,
       duree,
       priorite,
@@ -496,24 +506,14 @@
     }
   }
 
-  async function reinitialiserTout() {
-    try {
-      definirStatutApi("local", "Envoi API…");
-      await requeteApi(ROUTES.taches, { method: "DELETE" });
-
-      taches = [];
-      tacheSelectionneeId = null;
+  function reinitialiserTout() {
       dernierPlanning = [];
 
-      reinitialiserFormulaire();
-      afficherTout();
       masquerPanneauxPlanning();
-      definirStatutApi("connected", "API connectée");
+      afficherReseau();
+      mettreAJourInsightWidget();
+
       showAlert("planAlert", "Planning réinitialisé.", "success");
-    } catch (erreur) {
-      definirStatutApi("error", "Erreur API");
-      showAlert("planAlert", messageEndpointManquant(erreur, "DELETE /api/taches"));
-    }
   }
 
   function masquerPanneauxPlanning() {
@@ -530,7 +530,10 @@
 
     try {
       definirStatutApi("local", "Calcul API…");
-      const donnees = await requeteApi(ROUTES.ordre);
+      const donnees = await requeteApi(ROUTES.plan, {
+        method: "POST",
+        body: {},
+      });
       const planning = normaliserPlanningApi(donnees);
 
       if (!planning.length) {
@@ -558,45 +561,28 @@
   }
 
   function normaliserPlanningApi(donnees) {
-    const ordreBrut = extraireListe(donnees, ["ordre", "planning", "plan", "taches", "data", "items"]);
-    const liste = ordreBrut
-      .map((element, index) => {
-        if (typeof element === "string" || typeof element === "number") {
-          return chercherTacheParReference(String(element));
-        }
+    const planningBrut = extraireListe(donnees, ["planning", "ordre", "plan", "taches", "data", "items"]);
 
-        return normaliserTache(element, index);
-      })
-      .filter(Boolean)
-      .map((tache) => ({
-        ...tache,
-        dependances: tache.dependances.map((reference) => convertirReferenceEnId(reference)),
-      }));
+    return planningBrut.map((entree, index) => {
+      const tacheConnue = chercherTacheParReference(String(entree.id)) || {};
 
-    return ajouterChronologie(liste);
+      return {
+        id: convertirReferenceEnId(entree.id) || String(entree.id),
+        titre: entree.titre,
+        duree: entree.duree,
+        priorite: tacheConnue.priorite ?? 2,
+        dependances: tacheConnue.dependances || [],
+        etape: index + 1,
+        dateDebut: entree.date_debut,
+        dateFin: entree.date_fin,
+      };
+    });
   }
 
   function chercherTacheParReference(reference) {
     return taches.find(
       (tache) => tache.id === reference || tache.titre === reference || tache.referenceApi === reference
     );
-  }
-
-  function ajouterChronologie(liste) {
-    let heureCourante = 0;
-
-    return liste.map((tache, index) => {
-      const debut = heureCourante;
-      const fin = debut + Number(tache.duree);
-      heureCourante = fin;
-
-      return {
-        ...tache,
-        etape: index + 1,
-        debut,
-        fin,
-      };
-    });
   }
 
   function afficherOrdre(planning) {
@@ -612,7 +598,7 @@
             <div class="step-info">
               <div class="step-name">${escapeHtml(tache.titre)}</div>
               <div class="step-dates">
-                Début : ${tache.debut}h • Fin : ${tache.fin}h
+                Début : ${tache.dateDebut} • Fin : ${tache.dateFin}
               </div>
             </div>
 
@@ -625,7 +611,7 @@
       .join("");
   }
 
-  function afficherGantt(planning) {
+function afficherGantt(planning) {
     const svg = $("ganttSvg");
     if (!svg) return;
 
@@ -634,8 +620,18 @@
     const haut = 48;
     const hauteurLigne = 56;
     const hauteur = haut + planning.length * hauteurLigne + 40;
-    const total = Math.max(...planning.map((tache) => tache.fin), 1);
     const largeurGraphique = largeur - gauche - 40;
+
+    const dateProjetDebut = new Date(Math.min(...planning.map((t) => new Date(t.dateDebut))));
+    const joursDepuisDebut = (dateIso) =>
+      Math.round((new Date(dateIso) - dateProjetDebut) / (1000 * 60 * 60 * 24));
+
+    planning.forEach((tache) => {
+      tache.debut = joursDepuisDebut(tache.dateDebut);
+      tache.fin = joursDepuisDebut(tache.dateFin);
+    });
+
+    const total = Math.max(...planning.map((tache) => tache.fin), 1);
 
     svg.setAttribute("viewBox", `0 0 ${largeur} ${hauteur}`);
     svg.innerHTML = "";
@@ -665,7 +661,7 @@
       const x = gauche + (i / total) * largeurGraphique;
 
       svg.appendChild(ligneSvg(x, 42, x, hauteur - 20, "rgba(120,120,120,.16)"));
-      svg.appendChild(texteSvg(x - 7, 27, `${i}h`, "gantt-small"));
+      svg.appendChild(texteSvg(x - 7, 27, `J${i}`, "gantt-small"));
     }
 
     planning.forEach((tache, index) => {
@@ -695,7 +691,7 @@
       barre.classList.add("gantt-bar");
       svg.appendChild(barre);
 
-      svg.appendChild(texteSvg(x + 11, y + 26, `${tache.duree}h`, "gantt-bar-text"));
+      svg.appendChild(texteSvg(x + 11, y + 26, `${tache.duree}j`, "gantt-bar-text"));
     });
   }
 
@@ -752,7 +748,7 @@
           </div>
 
           <div>
-            <h3>Widget “Client heureux”</h3>
+            <h3>Démo optimisation IA</h3>
             <p class="text-muted">
               Simulez l’automatisation du projet et regardez la satisfaction,
               le temps gagné et la clarté du planning évoluer en direct.
@@ -863,9 +859,12 @@
     }
 
     const cube = $("holoCube");
+    const scene = document.querySelector(".holo-scene");
     if (cube) {
       cube.style.animationDuration = `${Math.max(5, 16 - valeur / 8)}s`;
-      cube.style.filter = `drop-shadow(0 0 ${10 + valeur / 2}px rgba(55,138,221,.45))`;
+    }
+    if (scene) {
+      scene.style.filter = `drop-shadow(0 0 ${10 + valeur / 2}px rgba(55,138,221,.45))`;
     }
 
     const insight = $("networkInsight");
