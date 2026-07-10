@@ -60,8 +60,6 @@
     definirStatutApi("local", "Connexion…");
     await chargerTaches();
     afficherTout();
-    mettreAJourSimulation();
-    demarrerInteraction3D();
   });
 
   function brancherBoutonsExistants() {
@@ -728,151 +726,22 @@ function afficherGantt(planning) {
     panel.id = "aiLabPanel";
 
     panel.innerHTML = `
-      <div class="panel-header">
-        <span class="panel-title">Expérience client augmentée</span>
-        <span class="badge badge-prio-3">Démo live</span>
-      </div>
-
-      <div class="panel-body">
-        <div class="ai-hero">
-          <div class="holo-scene" aria-hidden="true">
-            <div class="holo-cube" id="holoCube">
-              <span class="face front">IA</span>
-              <span class="face back">UX</span>
-              <span class="face right">3D</span>
-              <span class="face left">SVG</span>
-              <span class="face top">GO</span>
-              <span class="face bottom">+</span>
-            </div>
-            <div class="holo-shadow"></div>
-          </div>
-
-          <div>
-            <h3>Démo optimisation IA</h3>
-            <p class="text-muted">
-              Simulez l’automatisation du projet et regardez la satisfaction,
-              le temps gagné et la clarté du planning évoluer en direct.
-            </p>
-          </div>
+      <div class="network-panel">
+        <div class="network-header">
+          <strong>Carte des dépendances</strong>
+          <span id="networkInsight">Analyse en attente…</span>
         </div>
 
-        <div class="photo-showcase">
-          <article class="smart-photo-card">
-            <img
-              src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=900&q=80"
-              alt="Équipe projet en collaboration"
-            />
-            <div class="photo-overlay">
-              <strong>Équipe alignée</strong>
-              <span>Décisions plus rapides</span>
-            </div>
-          </article>
-
-          <article class="smart-photo-card">
-            <img
-              src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=900&q=80"
-              alt="Planning professionnel sur ordinateur"
-            />
-            <div class="photo-overlay">
-              <strong>Planning lisible</strong>
-              <span>Priorités faciles à comprendre</span>
-            </div>
-          </article>
-        </div>
-
-        <div class="happy-widget">
-          <div class="widget-top">
-            <div>
-              <strong>Essayez le boost IA</strong>
-              <p class="text-muted">
-                Déplacez le curseur pour voir l’impact instantané.
-              </p>
-            </div>
-
-            <div class="happy-face" id="happyFace">😊</div>
-          </div>
-
-          <label for="speedRange">Niveau d’automatisation</label>
-          <input type="range" id="speedRange" min="1" max="100" value="62" />
-
-          <div class="sim-grid">
-            <div class="sim-card">
-              <span id="speedValue">62%</span>
-              <small>Automatisation</small>
-            </div>
-
-            <div class="sim-card">
-              <span id="timeSaved">2.8h</span>
-              <small>Temps gagné</small>
-            </div>
-
-            <div class="sim-card">
-              <span id="happyScore">86%</span>
-              <small>Satisfaction</small>
-            </div>
-          </div>
-        </div>
-
-        <div class="network-panel">
-          <div class="network-header">
-            <strong>Carte SVG des dépendances</strong>
-            <span id="networkInsight">Analyse en attente…</span>
-          </div>
-
-          <svg
-            id="dependencyNetwork"
-            viewBox="0 0 700 300"
-            role="img"
-            aria-label="Carte SVG interactive des dépendances">
-          </svg>
-        </div>
+        <svg
+          id="dependencyNetwork"
+          viewBox="0 0 700 300"
+          role="img"
+          aria-label="Carte SVG interactive des dépendances">
+        </svg>
       </div>
     `;
 
     rightCol.appendChild(panel);
-
-    const curseur = $("speedRange");
-    if (curseur) {
-      curseur.addEventListener("input", mettreAJourSimulation);
-    }
-  }
-
-  function mettreAJourSimulation() {
-    const curseur = $("speedRange");
-    if (!curseur) return;
-
-    const valeur = Number(curseur.value);
-    const tempsGagne = (0.7 + valeur * 0.045).toFixed(1);
-    const satisfaction = Math.min(99, Math.round(55 + valeur * 0.48));
-    const clarte = Math.min(100, Math.round(40 + valeur * 0.6));
-
-    if ($("speedValue")) $("speedValue").textContent = `${valeur}%`;
-    if ($("timeSaved")) $("timeSaved").textContent = `${tempsGagne}h`;
-    if ($("happyScore")) $("happyScore").textContent = `${satisfaction}%`;
-
-    const visage = $("happyFace");
-    if (visage) {
-      visage.textContent =
-        satisfaction > 90 ? "🤩" : satisfaction > 75 ? "😊" : satisfaction > 60 ? "🙂" : "😐";
-
-      visage.style.transform = `scale(${1 + valeur / 350}) rotate(${(valeur - 50) / 10}deg)`;
-    }
-
-    const cube = $("holoCube");
-    const scene = document.querySelector(".holo-scene");
-    if (cube) {
-      cube.style.animationDuration = `${Math.max(5, 16 - valeur / 8)}s`;
-    }
-    if (scene) {
-      scene.style.filter = `drop-shadow(0 0 ${10 + valeur / 2}px rgba(55,138,221,.45))`;
-    }
-
-    const insight = $("networkInsight");
-    if (insight && !taches.length) {
-      insight.textContent = `Clarté estimée : ${clarte}%`;
-    }
-
-    document.documentElement.style.setProperty("--ai-power", `${valeur}%`);
   }
 
   function afficherReseau(planning = dernierPlanning) {
@@ -1030,28 +899,6 @@ function afficherGantt(planning) {
     insight.textContent = `${taches.length} tâche(s), ${totalHeures}h, ${nombreDependances} lien(s)`;
   }
 
-  function demarrerInteraction3D() {
-    const scene = document.querySelector(".holo-scene");
-    const cube = $("holoCube");
-
-    if (!scene || !cube) return;
-
-    scene.addEventListener("mousemove", (event) => {
-      const rect = scene.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-
-      const rotateY = (x / rect.width - 0.5) * 28;
-      const rotateX = (y / rect.height - 0.5) * -28;
-
-      cube.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) rotateZ(8deg)`;
-    });
-
-    scene.addEventListener("mouseleave", () => {
-      cube.style.transform = "";
-    });
-  }
-
   function injectStyles() {
     if ($("highTechInjectedStyles")) return;
 
@@ -1059,226 +906,8 @@ function afficherGantt(planning) {
     style.id = "highTechInjectedStyles";
 
     style.textContent = `
-      :root {
-        --ai-power: 62%;
-      }
-
-      .ai-hero {
-        display: grid;
-        grid-template-columns: 150px 1fr;
-        gap: 1.25rem;
-        align-items: center;
-        padding: 1rem;
-        border-radius: var(--radius);
-        border: .5px solid var(--border);
-        background:
-          radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 35%),
-          linear-gradient(135deg, var(--surface), var(--surface2));
-        overflow: hidden;
-      }
-
-      .ai-hero h3 {
-        margin: 0 0 .35rem;
-        font-size: 20px;
-      }
-
-      .holo-scene {
-        position: relative;
-        width: 130px;
-        height: 130px;
-        display: grid;
-        place-items: center;
-        perspective: 850px;
-        cursor: grab;
-      }
-
-      .holo-cube {
-        position: relative;
-        width: 74px;
-        height: 74px;
-        transform-style: preserve-3d;
-        animation: cubeSpin 11s linear infinite;
-        transition: transform .2s ease, filter .2s ease;
-      }
-
-      .face {
-        position: absolute;
-        inset: 0;
-        display: grid;
-        place-items: center;
-        border: 1px solid color-mix(in srgb, var(--accent) 70%, transparent);
-        background:
-          linear-gradient(135deg, rgba(255,255,255,.22), rgba(255,255,255,.04)),
-          color-mix(in srgb, var(--accent) 22%, transparent);
-        color: var(--accent-text);
-        font-weight: 800;
-        font-size: 15px;
-        letter-spacing: .08em;
-        backdrop-filter: blur(8px);
-        box-shadow: inset 0 0 20px rgba(255,255,255,.15);
-      }
-
-      .front  { transform: translateZ(37px); }
-      .back   { transform: rotateY(180deg) translateZ(37px); }
-      .right  { transform: rotateY(90deg) translateZ(37px); }
-      .left   { transform: rotateY(-90deg) translateZ(37px); }
-      .top    { transform: rotateX(90deg) translateZ(37px); }
-      .bottom { transform: rotateX(-90deg) translateZ(37px); }
-
-      .holo-shadow {
-        position: absolute;
-        bottom: 14px;
-        width: 92px;
-        height: 18px;
-        border-radius: 50%;
-        background: color-mix(in srgb, var(--accent) 28%, transparent);
-        filter: blur(12px);
-        animation: shadowPulse 2.5s ease-in-out infinite;
-      }
-
-      @keyframes cubeSpin {
-        from {
-          transform: rotateX(-18deg) rotateY(0deg) rotateZ(8deg);
-        }
-        to {
-          transform: rotateX(-18deg) rotateY(360deg) rotateZ(8deg);
-        }
-      }
-
-      @keyframes shadowPulse {
-        50% {
-          transform: scale(1.18);
-          opacity: .55;
-        }
-      }
-
-      .photo-showcase {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: .85rem;
-        margin-top: 1rem;
-      }
-
-      .smart-photo-card {
-        position: relative;
-        min-height: 145px;
-        overflow: hidden;
-        border-radius: var(--radius);
-        border: .5px solid var(--border);
-        background: var(--surface2);
-        isolation: isolate;
-      }
-
-      .smart-photo-card img {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        z-index: -2;
-        transition: transform .5s ease;
-      }
-
-      .smart-photo-card::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background:
-          linear-gradient(to top, rgba(0,0,0,.70), rgba(0,0,0,.08)),
-          radial-gradient(circle at 80% 20%, rgba(80,180,255,.35), transparent 35%);
-        z-index: -1;
-      }
-
-      .smart-photo-card:hover img {
-        transform: scale(1.08);
-      }
-
-      .photo-overlay {
-        position: absolute;
-        left: .9rem;
-        right: .9rem;
-        bottom: .8rem;
-        color: white;
-        display: grid;
-        gap: .15rem;
-      }
-
-      .photo-overlay strong {
-        font-size: 14px;
-      }
-
-      .photo-overlay span {
-        font-size: 12px;
-        opacity: .82;
-      }
-
-      .happy-widget {
-        margin-top: 1rem;
-        padding: 1rem;
-        border-radius: var(--radius);
-        border: .5px solid var(--border);
-        background:
-          radial-gradient(circle at var(--ai-power) 0%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 32%),
-          linear-gradient(135deg, var(--surface), var(--surface2));
-      }
-
-      .widget-top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        margin-bottom: .75rem;
-      }
-
-      .widget-top p {
-        margin: .15rem 0 0;
-      }
-
-      .happy-face {
-        width: 54px;
-        height: 54px;
-        border-radius: 18px;
-        display: grid;
-        place-items: center;
-        background: var(--accent-light);
-        font-size: 27px;
-        transition: transform .2s ease;
-      }
-
-      #speedRange {
-        width: 100%;
-        accent-color: var(--accent);
-      }
-
-      .sim-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: .7rem;
-        margin-top: .85rem;
-      }
-
-      .sim-card {
-        padding: .85rem;
-        border-radius: var(--radius-sm);
-        background: var(--bg);
-        border: .5px solid var(--border);
-      }
-
-      .sim-card span {
-        display: block;
-        color: var(--accent);
-        font-size: 21px;
-        font-weight: 800;
-        line-height: 1.1;
-      }
-
-      .sim-card small {
-        color: var(--text3);
-        font-size: 11px;
-      }
-
       .network-panel {
-        margin-top: 1rem;
+        margin-top: 0;
         border: .5px solid var(--border);
         border-radius: var(--radius);
         overflow: hidden;
@@ -1390,18 +1019,6 @@ function afficherGantt(planning) {
         to {
           opacity: 1;
           transform: translateX(0);
-        }
-      }
-
-      @media (max-width: 700px) {
-        .ai-hero,
-        .photo-showcase,
-        .sim-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .holo-scene {
-          margin: auto;
         }
       }
     `;
